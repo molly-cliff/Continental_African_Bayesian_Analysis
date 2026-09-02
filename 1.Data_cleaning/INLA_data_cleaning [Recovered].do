@@ -1,32 +1,51 @@
-cd "C:\Users\mvc32\OneDrive - University of Cambridge\Documents\Climate_meningitis_belt\Disease_data"
+cd "C:\Users\mvc32\OneDrive - University of Cambridge\Documents\INLA project"
 
-import excel "weekly_Epid_District.xlsx", sheet("weekly_Epid_District") firstrow clear
+import excel "C:\Users\mvc32\OneDrive - University of Cambridge\Documents\Climate_meningitis_belt\Disease_data\weekly_Epid_District.xlsx", sheet("weekly_Epid_District") firstrow clear
 
-count // Count total observations before deduplication
-
-// Quick look at key variables
-tab DISTRICT
-tab COUNTRY
-
+count // Number of outbreaks
 // Standardize country names
 replace COUNTRY = "Democratic Republic of the Congo" if COUNTRY == "RD Congo"
 replace COUNTRY = "Chad" if COUNTRY == "Tchad"
 replace COUNTRY = "Central African Republic" if COUNTRY == "Centrafrique"
 replace COUNTRY = "Cameroon" if COUNTRY == "Cameroun"
 
-// Generate combined identifier
+// Generate combined district and country identifier
 gen district_country = DISTRICT + " " + COUNTRY
+gen district_country2 = DISTRICT + " " + COUNTRY
 
-// Sort and identify duplicates
+tab district_country
 sort district_country
-gen dup = 0
-bysort district_country (district_country): replace dup = 1 if _N > 1
 
-// Tabulate and list duplicates
+// Identify and drop duplicates
+quietly by district_country: gen dup = cond(_N==1, 0, _n)
 tab dup
-list DISTRICT COUNTRY district_country if dup == 1, sepby(district_country)
+drop if dup > 1
+tab district_country
+
+//list of countries and places with outbreaks
+sort district_country
+save "meningitis_ADMN2_outbreak_list.dta", replace
+
+clear
 
 
+cd "C:\Users\mvc32\OneDrive - University of Cambridge\Documents\INLA project"
+
+import excel "C:\Users\mvc32\OneDrive - University of Cambridge\Documents\Climate_meningitis_belt\Disease_data\weekly_Epid_District.xlsx", sheet("weekly_Epid_District") firstrow clear
+
+count // Number of outbreaks
+// Standardize country names
+replace COUNTRY = "Democratic Republic of the Congo" if COUNTRY == "RD Congo"
+replace COUNTRY = "Chad" if COUNTRY == "Tchad"
+replace COUNTRY = "Central African Republic" if COUNTRY == "Centrafrique"
+replace COUNTRY = "Cameroon" if COUNTRY == "Cameroun"
+
+// Generate combined district and country identifier
+gen district_country = DISTRICT + " " + COUNTRY
+gen district_country2 = DISTRICT + " " + COUNTRY
+
+tab district_country
+sort district_country
 
 
 
@@ -124,7 +143,7 @@ replace district_country = "Sakassou Côte D'Ivoire"  if district_country == "Sa
 replace district_country = "Afar Zone 1 Ethiopia"  if district_country == "Aysa-ita woreda Ethiopia"
 replace district_country = "Afar Zone 1 Ethiopia"  if district_country == "Aysaeta Ethiopia"
 replace district_country = "Addis Ababa Ethiopia"  if district_country == "Bole 5 Ethiopia"
-replace district_country = "West Harerghe Ethiopia"  if district_country == "Chiro Town Ethiopia"
+replace district_country = "Mirab Hararghe Ethiopia"  if district_country == "Chiro Town Ethiopia"
 replace district_country = "Kollo Niger"  if district_country == "DOUNGAS Niger"
 replace district_country = "Gode Ethiopia" if district_country == "Danan Ethiopia"
 replace district_country = "East Hararge Ethiopia" if district_country == "Deder Town Ethiopia"
@@ -156,7 +175,7 @@ replace district_country = "Aweil Central South Sudan"  if district_country == "
 replace district_country = "Guelendeng Chad"  if district_country == "Gueledeng Chad"
 replace district_country = "Aweil Central South Sudan"  if district_country == "Awiel Centre South Sudan"
 replace district_country = "Ndjamena Est Chad"  if district_country == "Ndjamena-Est Chad"
-replace district_country = "Kabbia Chad"  if district_country == "Kabbia Chad"
+
 replace district_country = "Kasena Nankana East Ghana"  if district_country == "Kassena-nankana Ghana"
 replace district_country = "Maradi Ville Niger"  if district_country == "Maradi Niger"
 replace district_country = "Nongr Massom Burkina Faso"  if district_country == "Nongre-Massom Burkina Faso"
@@ -319,7 +338,7 @@ replace district_country = "Tandjilé Ouest Chad" if DISTRICT == "Bere"
 replace district_country = "Tandjilé Ouest Chad" if DISTRICT == "Dono Manga"
 replace district_country = "Ennedi Ouest Chad" if DISTRICT == "Fada"
 replace district_country = "Mandoul Occidental Chad" if DISTRICT == "Goundi"
-replace district_country = "Kabbia Chad	" if DISTRICT == "Gaya"
+
 replace district_country = "Tandjilé Ouest Chad" if DISTRICT == "Kelo"
 replace district_country = "Gontougo Côte d'Ivoire" if DISTRICT == "BONDOUKOU"
 replace district_country = "Bounkani Côte d'Ivoire" if DISTRICT == "BOUNA"
@@ -422,36 +441,172 @@ replace district_country = "Louga Senegal" if DISTRICT == "Dahra"
 replace district_country = "Rufisque Senegal" if DISTRICT == "Diamniadio"
 replace district_country = "Thiès Senegal" if DISTRICT == "Joal-Fadiouth"
 replace district_country = "Thiès Senegal" if DISTRICT == "Poponguine"
-* Ensure WEEK is numeric
-capture confirm numeric variable WEEK
-if _rc {
-    gen WEEK_num = real(WEEK)
-    rename WEEK WEEK_str
-    rename WEEK_num WEEK
-}
+sort district_country
+save "testing.dta", replace
+
+replace district_country = "Gnagna Burkina Faso" if district_country == "BogandT Burkina Faso"
+replace district_country = "Kourwéogo Burkina Faso" if district_country == "BoussÚ Burkina Faso"
+replace district_country = "Nongr Massom Burkina Faso"  if district_country == "Nongr Massom Burkina Faso"
+replace district_country = "Bazèga Burkina Faso" if district_country == "SaponT Burkina Faso"
+replace district_country = "Diamaré Cameroon" if district_country == "Roua Cameroon"
+replace district_country = "Bangui Central African Republic" if district_country == "1er Arrondissement Central African Republic"
+replace district_country = "Bangui Central African Republic" if district_country == "3er Arrondissement Central African Republic"
+replace district_country = "Bangui Central African Republic" if district_country == "3e Arrondissement Central African Republic"
+
+sort district_country
+replace district_country = "Addis Abeba Ethiopia" if district_country == "Addis Ababa Ethiopia"
+replace district_country = "Kembé Central African Republic"  if district_country == "Kembe-Satema Democratic Republic of the Congo"
+replace district_country = "Guelendeng Chad"  if district_country == "Gueledeng Chad"
+
+replace district_country = "Dodjé Chad"  if district_country == "Beboto Chad"
+
+replace district_country = "Mandoul Occidental Chad"  if district_country == "Bedjondo Chad"
+replace district_country = "Houet Burkina Faso"  if district_country == "Dafra Burkina Faso"
+replace district_country = "Mayo-Boneye Chad"  if district_country == "Guelendeng Chad"
+
+replace district_country = "Loug Chari Chad"  if district_country == "Kouno Chad"
+replace district_country = "Al Geneina Sudan"  if district_country == "Um  Dukhum Sudan"
+
+
+
+replace district_country = "Lac Wey Chad"  if district_country == "Laokassy Chad"
+replace district_country = "Mayo-Dallah Chad"  if district_country == "Pala Chad"
+replace district_country = "Batha Est Chad"  if district_country == "Oum Hadjer Chad"
+replace district_country = "Agnuak Ethiopia"  if district_country == "Abobo woreda Ethiopia"
+replace district_country = "Mehakelegnaw Ethiopia"  if district_country == "Adwa Town Ethiopia"
+replace district_country = "Mehakelegnaw Ethiopia"  if district_country == "Central Tigray Ethiopia"
+
+replace district_country = "Hareri Ethiopia"  if district_country == "East Hararge Ethiopia"
+
+replace district_country = "Dagana Chad"  if district_country == "Massakory Chad"
+
+replace district_country = "N'Djamena Chad"  if district_country == "Ndjamena Est Chad"
+replace district_country = "Berekum East Ghana"  if district_country == "Berekum Ghana"
+
+replace district_country = "Builsa South Ghana"  if district_country == "Builsa Ghana"
+
+replace district_country = "Kasena Nankana East Ghana"  if district_country == "Kassena-Nankana Ghana"
+replace district_country = "Bamako Mali"  if district_country == "Commune 2 Mali"
+
+replace district_country = "Ménaka Mali"  if district_country == "Tidermene Mali"
+replace district_country = "Aguié Niger"  if district_country == "Aguié Nige"
+replace district_country = "Gaya Niger"  if district_country == "Kabbia Chad"
+replace district_country = "Aweil South Sudan"  if district_country == "Aweil Central South Sudan"
+replace district_country = "Rumbek South Sudan"  if district_country == "Rumbek North South Sudan"
+
+replace district_country = "Kadiogo Burkina Faso"  if district_country == "Nongr Massom Burkina Faso"
+replace district_country = "Aru Democratic Republic of the Congo"  if district_country == "ADJA Democratic Republic of the Congo"
+replace district_country = "Budjala Democratic Republic of the Congo"  if district_country == "Bangabola Democratic Republic of the Congo"
+replace district_country = "Basoko Democratic Republic of the Congo"  if district_country == "Basali Democratic Republic of the Congo"
+replace district_country = "Bongandanga Democratic Republic of the Congo"  if district_country == "Bosondjo Democratic Republic of the Congo"
+replace district_country = "Kungu Democratic Republic of the Congo"  if district_country == "Boto Democratic Republic of the Congo"
+replace district_country = "Mweka Democratic Republic of the Congo"  if district_country == "Bulape Democratic Republic of the Congo"
+replace district_country = "Lubudi Democratic Republic of the Congo"  if district_country == "Bunkeya Democratic Republic of the Congo"
+replace district_country = "Dibaya Democratic Republic of the Congo"  if district_country == "Bunkonde Democratic Republic of the Congo"
+replace district_country = "Watsa Democratic Republic of the Congo"  if district_country == "Gombari Democratic Republic of the Congo"
+
+
+replace district_country = "Walikale Democratic Republic of the Congo"  if district_country == "Iboko Democratic Republic of the Congo"
+replace district_country = "Mwenga Democratic Republic of the Congo"  if district_country == "Itebero Democratic Republic of the Congo"
+replace district_country = "Bukama Democratic Republic of the Congo"  if district_country == "Itombwe Democratic Republic of the Congo"
+replace district_country = "Bukama Democratic Republic of the Congo"  if district_country == "Kabondo-Dianda Democratic Republic of the Congo"
+replace district_country = "Businga Democratic Republic of the Congo"  if district_country == "KARAWA Democratic Republic of the Congo"
+
+replace district_country = "Wamba Democratic Republic of the Congo"  if district_country == "Pawa Democratic Republic of the Congo"
+
+replace district_country = "Pweto Democratic Republic of the Congo"  if district_country == "Kilwa Democratic Republic of the Congo"
+replace district_country = "Tshela Democratic Republic of the Congo"  if district_country == "Kinkonzi Democratic Republic of the Congo"
+replace district_country = "Bomongo Democratic Republic of the Congo"  if district_country == "Lilanga Bobangi Democratic Republic of the Congo"
+replace district_country = "Kinshasa Democratic Republic of the Congo"  if district_country == "LimetT Democratic Republic of the Congo"
+replace district_country = "Kinshasa Democratic Republic of the Congo"  if district_country == "Limete Democratic Republic of the Congo"
+replace district_country = "Mutshatsha Democratic Republic of the Congo"  if district_country == "Lualaba Democratic Republic of the Congo"
+replace district_country = "Luilu Democratic Republic of the Congo"  if district_country == "Luputa Democratic Republic of the Congo"
+
+
+
+
+replace district_country = "Yakoma Democratic Republic of the Congo"  if district_country == "ABUZI Democratic Republic of the Congo"
+replace district_country = "Yakoma Democratic Republic of the Congo"  if district_country == "Abuzi Democratic Republic of the Congo"
+replace district_country = "Aru Democratic Republic of the Congo"  if district_country == "ARIWARA Democratic Republic of the Congo"
+replace district_country = "Bafwasende Democratic Republic of the Congo"  if district_country == "Bafwagbogbo Democratic Republic of the Congo"
+replace district_country = "Kamina Democratic Republic of the Congo"  if district_country == "Baka Democratic Republic of the Congo"
+replace district_country = "Katanda Democratic Republic of the Congo"  if district_country == "Bibanga Democratic Republic of the Congo"
+replace district_country = "Bondo Democratic Republic of the Congo"  if district_country == "Bili Democratic Republic of the Congo"
+replace district_country = "Lisala Democratic Republic of the Congo"  if district_country == "Binga Democratic Republic of the Congo"
+replace district_country = "Budjala Democratic Republic of the Congo"  if district_country == "Bulu Democratic Republic of the Congo"
+replace district_country = "Bumba Democratic Republic of the Congo"  if district_country == "Yamaluka Democratic Republic of the Congo"
+replace district_country = "Ubundu Democratic Republic of the Congo"  if district_country == "Wanie-Rukula Democratic Republic Of The Congo"
+replace district_country = "Lubao Democratic Republic of the Congo"  if district_country == "Tshofa Democratic Republic of the Congo"
+replace district_country = "Watsa Democratic Republic of the Congo"  if district_country == "Damas Democratic Republic of the Congo"
+replace district_country = "Lubefu Democratic Republic of the Congo"  if district_country == "Dikungu Democratic Republic of the Congo"
+replace district_country = "Dungu Democratic Republic of the Congo"  if district_country == "Doruma Democratic Republic of the Congo"
+replace district_country = "Djugu Democratic Republic of the Congo"  if district_country == "Fataki Democratic Republic of the Congo"
+replace district_country = "Irumu Democratic Republic of the Congo"  if district_country == "Gethy Democratic Republic of the Congo"
+
+replace district_country = "Irumu Democratic Republic of the Congo"  if district_country == "Kakenge Democratic Republic of the Congo"
+replace district_country = "Mweka Democratic Republic of the Congo"  if district_country == "Kalonge Democratic Republic of the Congo"
+replace district_country = "Kalehe Democratic Republic of the Congo"  if district_country == "Kapolowe Democratic Republic of the Congo"
+
+
+replace district_country = "Mambasa Democratic Republic of the Congo"  if district_country == "Lolwa Democratic Republic of the Congo"
+replace district_country = "Luiza Democratic Republic of the Congo"  if district_country == "Luambo Democratic Republic of the Congo"
+replace district_country = "Kisangani Democratic Republic of the Congo"  if district_country == "Mangobo Democratic Republic of the Congo"
+replace district_country = "Befale Democratic Republic of the Congo"  if district_country == "Mompono Democratic Republic of the Congo"
+replace district_country = "Masi-Manimba Democratic Republic of the Congo"  if district_country == "Mosango Democratic Republic of the Congo"
+replace district_country = "Malemba-Nkulu Democratic Republic of the Congo"  if district_country == "Mulongo Democratic Republic of the Congo"
+replace district_country = "Demba Democratic Republic of the Congo"  if district_country == "Mutoto Democratic Republic of the Congo"
+
+replace district_country = "Luebo Democratic Republic of the Congo"  if district_country == "Ndjoko Punda Democratic Republic of the Congo"
+replace district_country = "Lubutu Democratic Republic of the Congo"  if district_country == "Obokote Democratic Republic of the Congo"
+replace district_country = "Kasongo-Lunda Democratic Republic of the Congo"  if district_country == "Panzi Democratic Republic of the Congo"
+replace district_country = "Buterere Burundi"  if district_country == "Zone Nord Burundi"
+replace district_country = "Doolo Ethiopia"  if district_country == "Warder Ethiopia"
+replace district_country = "Debub Wollo Ethiopia"  if district_country == "South Wollo Ethiopia"
+replace district_country = "Debub Omo Ethiopia"  if district_country == "South Omo Ethiopia"
+replace district_country = "Silti Ethiopia"  if district_country == "Silte Ethiopia"
+replace district_country = "Majang Ethiopia"  if district_country == "Majang Ethiopia"
+replace district_country = "Agnuak Ethiopia"  if district_country == "Makuey Ethiopia"
+replace district_country = "Agnuak Ethiopia"  if district_country == "Gambella Town Ethiopia"
+replace district_country = "Shabelle Ethiopia"  if district_country == "Gode Ethiopia"
+replace district_country = "Shabelle Ethiopia"  if district_country == "Godgod Ethiopia"
+replace district_country = "Fafan Ethiopia"  if district_country == "Jijiga Ethiopia"
+replace district_country = "Ubundu Democratic Republic of the Congo"  if district_country == "Wanie-Rukula Democratic Republic of the Congo"
+replace district_country = "Dawakin Tofa Nigeria"  if district_country == "D Awakintofa Nigeria"
+replace district_country = "Mirriah Niger"  if district_country == "Zinder Niger"
+
+replace district_country = "Madarounfa Niger"  if district_country == "Maradi Ville Niger"
+replace district_country = "Gaya Niger"  if district_country == "Kabbia Chad"
+replace district_country = "Majang Ethiopia"  if district_country == "Mengeshi Ethiopia"
+replace district_country = "Borena Ethiopia"  if district_country == "El-Waye Ethiopia"
+replace district_country = "Fashooda South Sudan"  if district_country == "Malakal South Sudan"
+
+
+replace district_country = "Salamabila Democratic Republic of the Congo" if district_country == "SARAMABILA Democratic Republic of the Congo"
+replace district_country = "Nizi Democratic Republic of the Congo" if district_country == "Kinkondja Democratic Republic of the Congo"
+replace district_country = "Kabinda Democratic Republic of the Congo" if district_country == "LUDIMBI LUKULA Democratic Republic of the Congo"
+replace district_country = "Tshikapa Democratic Republic of the Congo" if district_country == "LUFUNGULA Democratic Republic of the Congo"
+replace district_country = "Irumu Democratic Republic of the Congo" if district_country == "Lita Democratic Republic of the Congo"
+replace district_country = "Amatonge South Sudan" if district_country == "Torit South Sudan"
+
+replace district_country = "Tshela Democratic Republic of the Congo"  if district_country == "Kinkonzi Democratic Republic of the Congo"
+replace district_country = "Bongandanga Democratic Republic of the Congo"  if district_country == "Pimu Democratic Republic of the Congo"
+replace district_country = "Bumba Democratic Republic of the Congo"  if district_country == "YANGALA Democratic Republic of the Congo"
 
 
 sort district_country
-save "weekly_inc_clean2.dta", replace
+save "testing.dta", replace
 
-//first round of data cleaning, will merge with the original GADM district names in the excel file to see which outbreaks can be assigned to a single district
-//this then creates the weekly_inc_easy_merge file
+
+
 clear
-import excel using "Epidemic YN.xlsx", firstrow clear
+import excel using "C:\Users\mvc32\OneDrive - University of Cambridge\Documents\Climate_meningitis_belt\Disease_data\Epidemic YN.xlsx", firstrow clear
 sort district_country
-merge district_country using "weekly_inc_clean2.dta"
+merge district_country using "testing.dta"
 tab _merge
-gen epidemic = 0
-replace epidemic = 1 if _merge == 3
-drop if _merge == 2
-sort district_country2
-drop _merge
+keep if _merge ==2
 sort district_country
-sort district_country
-save "weekly_inc_easymerge2.dta", replace
+quietly by district_country: gen dup = cond(_N==1, 0, _n)
+tab dup
+drop if dup > 1
 
-restore
-
-* Export to Excel
-export excel using "C:\Users\mvc32\OneDrive - University of Cambridge\Documents\Climate_meningitis_belt\Disease_data\outbreak_counts.xlsx", ///
-    sheet("Outbreaks")  firstrow(variables) replace
+export excel using "non-matched-outbreaks", sheetreplace firstrow(variables)
