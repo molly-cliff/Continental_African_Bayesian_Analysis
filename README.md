@@ -13,7 +13,7 @@ We analysed district-month (ADMN2) epidemic occurrences from 2003 to 2022, asses
 5. Multivariate analysis: Stepwise multivariate analysis examining the relationships between climatic and socioeconomic variables and district-month-level bacterial meningitis outbreak occurrence.
 6. Non-linearity and interactions: Evaluation of non-linear relationships using RW2 effects for included explanatory variables, as well as assessment of the interaction between dust and zonal wind.
 7. Cross-validation: Stratified five-fold cross-validation of the final model, with predictive performance evaluated using the Brier score, log loss, and area under the receiver operating characteristic curve (ROC AUC).
-8. Additional plots
+8. Plots: Final model and plots for random effects (temperature, space, and time), as well as the interaction effect between dust and wind. A GIF of monthly predicted probability across Africa is also included here.
 9. Sensitivity analysis: Prior sensitivity analyses assessing the robustness of model estimates to alternative prior specifications, including their effects on fixed-effect estimates, WAIC, and DIC. This includes the fixed effect plot and WAIC/DIC table for different prior setups (Supplementary Information)
 
 &#x20;
