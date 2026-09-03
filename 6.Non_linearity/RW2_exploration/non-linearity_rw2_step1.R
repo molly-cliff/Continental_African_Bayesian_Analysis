@@ -169,7 +169,5 @@ non_linear_testing <- function(
   write.csv(comparison_results, out_csv, row.names = FALSE)
   
   print(comparison_results)
-  message("Saved: ", out_csv)
   
-  invisible(comparison_results)
 }

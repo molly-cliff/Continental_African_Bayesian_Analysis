@@ -169,10 +169,8 @@ non_linear_testing <- function(
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
   write.csv(
     comparison_results,
-    file.path(output_dir, "nonlinearity_comparison.csv"),
+    file.path(output_dir, "nonlinearity_comparison_step2.csv"),
     row.names = FALSE
   )
-  
-  print(comparison_results)
-  invisible(comparison_results)
+
 }

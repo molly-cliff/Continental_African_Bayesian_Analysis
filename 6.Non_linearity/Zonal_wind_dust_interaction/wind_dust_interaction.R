@@ -15,9 +15,7 @@ library(ggplot2)
 library(gridExtra)
 library(reshape2)
 
-non_linear_testing_dustwind4 <-function() {
-  # Left join all environmental datasets onto spatiotemporaloutbreaks
-
+non_linear_dust_wind_iter <-function() {
     
     # ============================================================
     # 1. LOAD AND PREPARE SPATIOTEMPORAL DATA
@@ -215,8 +213,6 @@ non_linear_testing_dustwind4 <-function() {
     merged_data$temp_index <-
       as.numeric(cut(merged_data$temp_scale, breaks = 50))
     
-    merged_data$pop_index <-
-      as.numeric(cut(merged_data$pop_density_scale, breaks = 50))
     
     merged_data$aod_index <-
       as.numeric(cut(merged_data$aod_scale, breaks = 50))
@@ -362,13 +358,7 @@ non_linear_testing_dustwind4 <-function() {
     
     print(comparison)
     
-    
-    # ============================================================
-    # BEST MODEL BY EACH FITTING CRITERION
-    # ============================================================
-    #
-    # Lower values indicate better fit.
-    #
+
     
     best_dic <-
       comparison$Model[which.min(comparison$DIC)]
