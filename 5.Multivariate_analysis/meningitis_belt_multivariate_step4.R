@@ -15,7 +15,7 @@ library(reshape2)
 library(Hmisc)
 library(writexl)
 
-scary_moo_fulltest <-function() {
+multivariate_step4 <-function() {
   # Left join all environmental datasets onto spatiotemporaloutbreaks
   
   spatiotemporaloutbreaks <- read.csv("final_popdensity_vaccine.csv")
@@ -106,24 +106,8 @@ scary_moo_fulltest <-function() {
   merged_data$area <- match(merged_data$district_country.x, shape2$district_country.x)
   
   
-
-  
-  # Step 2: Calculate monthly climatology for multiple variables
-  climatology <- merged_data %>%
-    group_by(month) %>%
-    summarise(across(c(temp, rainfall,windspeed,eastward_wind, north_wind, humidity, pop_density, aod, cropland, forest, barren), ~ mean(.x, na.rm = TRUE), .names = "clim_{.col}"))
-  
-  # Step 3: Join climatology to full dataset and compute anomalies
-  merged_data <- merged_data %>%
-    left_join(climatology, by = "month") %>%
-    mutate(across(c(temp, rainfall,windspeed,eastward_wind, north_wind, humidity, pop_density, aod, cropland, forest, barren),
-                  ~ .x - get(paste0("clim_", cur_column())),
-                  .names = "{.col}_anomaly"))
-  
   # Inspect results
   head(merged_data)
-  
-  
   
   
   test<-table(merged_data$outbreak_2)
@@ -145,30 +129,8 @@ scary_moo_fulltest <-function() {
   
   print("OUTBREAK WEIGHTS:")
   print(outbreak_weight)
-  
-  
-  # Select variables
-  vars <- c("rainfall",
-            "north_wind", "humidity",      
-            "windspeed",
-            "cropland","eastward_wind",
-            "barren",  "vaccine","temp","forest","aod","pop_density")
-  
-  # Compute correlation matrix
-  corr_matrix <- cor(merged_data[, vars], use = "complete.obs")
-  
-  
-  # Save corrplot as PNG
-  png("my_corrplot.png", width = 1200, height = 1000, res = 150)  # Adjust size/resolution if needed
-  corrplot(corr_matrix, method = "color", type = "upper", 
-           addCoef.col = "black", number.cex = 1.2, tl.cex = 1.2,
-           tl.col = "black", col = colorRampPalette(c("#ff0000", "white", "#195696"))(100))
-  dev.off()  # Close the PNG device
-  
-  
-  # ==== VIF Analysis ====
-  
 
+  
   merged_data$rainfall_scale<- scale(merged_data$rainfall)
   merged_data$windspeed_scale<- scale(merged_data$windspeed)
   merged_data$eastward_wind_scale<- scale(merged_data$eastward_wind)
@@ -188,8 +150,8 @@ scary_moo_fulltest <-function() {
  
   
   
-  vars_inla <- c(  "windspeed_scale","north_wind_scale", "humidity_scale",
-                 "vaccine", "pop_density_scale", 
+  vars_inla <- c(  "windspeed_scale","north_wind_scale", 
+                 "vaccine", "pop_density_scale", "rainfall_scale"
               "cropland",
                  "barren", "forest"
   )
@@ -206,7 +168,7 @@ scary_moo_fulltest <-function() {
       "+ temp_scale",
       "+ eastward_wind_scale",
       "+ aod_scale",
-      
+      "+ humidity_scale",
       "+ f(year_month, model = 'rw2') ",
       "+ f(area, model = 'bym2', graph = ken.adj, scale.model = TRUE, constr = TRUE)"
     ))
@@ -251,7 +213,7 @@ scary_moo_fulltest <-function() {
   posterior_table_m2_or[, c("estimate", "CI_1", "CI_2")] <- exp(posterior_table_m2_or[, c("estimate", "CI_1", "CI_2")])
   print(posterior_table_m2_or)
   
-  write_xlsx(posterior_table_m2_or, path = "multivar_step2_analysis.xlsx")
+  write_xlsx(posterior_table_m2_or, path = "multivar_step4_analysis.xlsx")
   
 }
   

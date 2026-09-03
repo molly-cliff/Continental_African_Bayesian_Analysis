@@ -15,7 +15,7 @@ library(reshape2)
 library(Hmisc)
 library(writexl)
 
-scary_moo_fulltest <-function() {
+univariate_analysis <-function() {
   # Left join all environmental datasets onto spatiotemporaloutbreaks
   
   spatiotemporaloutbreaks <- read.csv("final_popdensity_vaccine.csv")
@@ -189,8 +189,8 @@ scary_moo_fulltest <-function() {
   
   
   vars_inla <- c(  "windspeed_scale","north_wind_scale", "humidity_scale",
-                 "vaccine", "pop_density_scale", 
-               "aod_scale", "cropland",
+                 "vaccine", "pop_density_scale", "temp_scale", "temp_lag1",
+                 "eastward_wind","eastward_wind_scale","aod_scale", "cropland",
                  "barren", "forest"
   )
   
@@ -203,8 +203,6 @@ scary_moo_fulltest <-function() {
   for (var in vars_inla) {
     formula <- as.formula(paste(
       "outbreak_2 ~", var, 
-      "+ temp_scale",
-      "+ eastward_wind_scale",
       "+ f(year_month, model = 'rw2') ",
       "+ f(area, model = 'bym2', graph = ken.adj, scale.model = TRUE, constr = TRUE)"
     ))
@@ -249,7 +247,7 @@ scary_moo_fulltest <-function() {
   posterior_table_m2_or[, c("estimate", "CI_1", "CI_2")] <- exp(posterior_table_m2_or[, c("estimate", "CI_1", "CI_2")])
   print(posterior_table_m2_or)
   
-  write_xlsx(posterior_table_m2_or, path = "multivar_step2_analysis.xlsx")
+  write_xlsx(posterior_table_m2_or, path = "univariate_analysis.xlsx")
   
 }
   
