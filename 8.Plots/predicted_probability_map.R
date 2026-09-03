@@ -65,7 +65,7 @@ merged_data$area<-as.numeric(as.factor(merged_data$district_country.x))
 
 missing_in_shape <- setdiff(merged_data$district_country.x, shape2$district_country.x)
 if (length(missing_in_shape) > 0) {
-  stop("❌ These districts are in merged_data but not in shapefile: ",
+  stop("istricts are in merged_data but not in shapefile: ",
        paste(missing_in_shape, collapse = ", "))
 }
 
@@ -73,7 +73,7 @@ if (length(missing_in_shape) > 0) {
 missing_in_data <- setdiff(shape2$district_country.x, merged_data$district_country.x)
 
 if (length(missing_in_data) > 0) {
-  message("⚠ Dropping ", length(missing_in_data), 
+  message("ropping ", length(missing_in_data), 
           " districts from shapefile that are not in merged_data:\n",
           paste(missing_in_data, collapse = ", "))
   
@@ -85,9 +85,9 @@ if (length(missing_in_data) > 0) {
 # --- 3. Check sorted lists match ---
 if (!identical(sort(unique(merged_data$district_country.x)),
                sort(unique(shape2$district_country.x)))) {
-  stop("❌ District-country lists differ even after sorting!")
+  stop("istrict-country lists differ even after sorting!")
 } else {
-  message("✅ All district-country matches verified.")
+  message("all district-country matches verified.")
 }
 
 # Ensure consistent ordering
