@@ -1,5 +1,5 @@
 
-code_cleaning <- function() {
+non_linear_plots <- function() {
   
   # ---- Libraries ----
   library(dplyr)
