@@ -124,7 +124,6 @@ full_inla_model <- function() {
   merged_data$pop_density_scale <- scale(merged_data$pop_density)
   
   merged_data$temp_index <- as.numeric(cut(merged_data$temp_scale, breaks = 50))
-  merged_data$pop_index <- as.numeric(cut(merged_data$pop_density_scale, breaks = 50))
   merged_data$aod_index <- as.numeric(cut(merged_data$aod_scale, breaks = 50))
   
   merged_data$wind_strength <- abs(merged_data$eastward_wind)
