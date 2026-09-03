@@ -3,53 +3,6 @@ setwd("C:/Users/mvc32/OneDrive - University of Cambridge/Documents/Climate_menin
 shape2 <- st_read("Shapefile_improved.shp")
 
 
-country_list <- c(
-  "Egypt", "Libya", "Algeria",
-  "Tunisia", "Mauritania",  "Western Sahara", "Niger",
-  "Chad", "Mali", "Sudan"
-)
-
-
-shape2 <- shape2  %>% 
-  filter(COUNTRY %in% country_list)
-plot(st_geometry(shape2))
-
-# Plot geometry
-windows(record = TRUE)
-
-landcover_dir=("landcover")
-
-setwd("C:/Users/mvc32/OneDrive - University of Cambridge/Documents/INLA project/landcovertest")
-
-# ---- Read landcover file ----
-
-nc_files <- list.files(pattern = "\\.nc$", full.names = TRUE)
-if (length(nc_files) == 0) stop("No NetCDF (.nc) files found in the directory!")
-
-message("Reading: ", basename(nc_files[1]))
-r <- rast(nc_files[1])
-
-# ---- Helper: Extract last 12 layers for a variable ----
-extract_last_layers <- function(pattern) {
-  x <- subset(r, grepl(pattern, names(r)))
-  x[[ (nlyr(x) - 12 + 1):nlyr(x) ]]
-}
-
-
-# ---- Extract required variables ----
-primf <- extract_last_layers("^primf")
-primn <- extract_last_layers("^primn")
-secdf <- extract_last_layers("^secdf")
-secdn <- extract_last_layers("^secdn")
-urban <- extract_last_layers("^urban")
-c3ann <- extract_last_layers("^c3ann")
-c4ann <- extract_last_layers("^c4ann")
-c3per <- extract_last_layers("^c3per")
-c4per <- extract_last_layers("^c4per")
-c3nfx <- extract_last_layers("^c3nfx")
-pastr <- extract_last_layers("^pastr")
-range <- extract_last_layers("^range")
-
 setwd("C:/Users/mvc32/OneDrive - University of Cambridge/Documents/INLA project/landcovertest3")
 
 
@@ -153,3 +106,6 @@ final_df <- cropland_df %>%
   distinct(code, .keep_all = TRUE)
 
 return(final_df)
+
+write.csv(final_data, "final_landcover_data.csv", row.names = FALSE)
+
