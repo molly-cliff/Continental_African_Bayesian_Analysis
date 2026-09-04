@@ -6,7 +6,7 @@ We analysed district-month (ADMN2) epidemic occurrences from 2003 to 2022, asses
 
 # Repository contents
 
-1. Data preparation: Code used to process and extract district-month level data on specific humidity, wind speed and direction, dust, rainfall, and land cover for inclusion in the spatiotemporal model.
+1. [Data preparation](https://github.com/molly-cliff/Continental_African_Bayesian_Analysis/tree/main/1.Data_processing): Code used to process and extract district-month level data on specific humidity, wind speed and direction, dust, rainfall, and land cover for inclusion in the spatiotemporal model.
 2. Spatiotemporal analysis: Examination of spatial and temporal random-effects structures to determine which components should be included in the climatic model.
 3. Outbreak cluster analysis: Analysis informing Figures 1a and 1b of the manuscript, examining the number, timing, and geographic distribution of meningitis outbreak events across Africa.
 4. Univariate analysis: Assessment of the univariate relationships between climatic and socioeconomic variables and district-month-level bacterial meningitis outbreak occurrence. This also includes the Pearson correlation coefficient (Supplementary Information) and VIF analysis for collinearity.
