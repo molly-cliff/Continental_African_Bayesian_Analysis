@@ -53,20 +53,26 @@ outbreak_data <- merged_data[
   merged_data$outbreak_2 == 1 & !is.na(merged_data$temp_c),
 ]
 
-
-plot<-ggplot(outbreak_data, aes(x = temp_c)) +
+plot <- ggplot(outbreak_data, aes(x = temp_c)) +
   geom_histogram(
-    binwidth = 1,      # 1°C bins
+    binwidth = 1,
     fill = "#2085f0",
+    color = "white",     # outlines each bar so they read as separate blocks
+    linewidth = 1.2       # thicker white line = bigger visual gap between bars
   ) +
   labs(
     x = "Temperature (°C)",
     y = "Total district-months experiencing bacterial meningitis outbreaks"
   ) +
-  theme_minimal()
+  theme_minimal(base_size = 10) +        # dialed back down from the last version
+  theme(
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 10),
+    plot.margin = margin(10, 10, 10, 10)
+  )
 
-  
-  ggsave("histo.png", plot, width = 8, height = 5)
+
+ggsave("histo.png", plot, width = 8, height = 5, dpi = 300)
   
   # ---- Read shapefile & build adjacency ----
   shape2 <- st_read("Shapefile_improved.shp", quiet = TRUE)
