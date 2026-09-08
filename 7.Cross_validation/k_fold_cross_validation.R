@@ -446,9 +446,6 @@ kfold_cross_val <-function() {
   # ROC AUC
   roc_obj <- roc(actual_vals, predicted_probs)
   auc_val <- auc(roc_obj)
-  optimal_index <- which.max(roc_obj$sensitivities + roc_full$specificities - 1)
-  optimal_threshold <- roc_full$obj[optimal_index]
-  
   # PR AUC
   pr_obj <- pr.curve(scores.class0 = predicted_probs[actual_vals == 1],
                      scores.class1 = predicted_probs[actual_vals == 0],
@@ -998,6 +995,8 @@ kfold_cross_val <-function() {
   
   save_plot( test, " test_ROC.png", 
             base_width = 14, height = 8)
+  
+  ggsave("Figure6.tif", plot = test, width = 190, height = 220, units = "mm", dpi = 300, compression = "lzw")
   print( test)
   
 
@@ -1012,6 +1011,4 @@ kfold_cross_val <-function() {
   write.csv(summary_stats, "cv_summary_metrics.csv", row.names = FALSE)
   
 }
-  
-  
   
