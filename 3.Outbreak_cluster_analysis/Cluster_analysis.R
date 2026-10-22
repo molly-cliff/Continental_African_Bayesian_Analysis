@@ -75,25 +75,40 @@ burnett_func <- function() {
       panel.grid.major.x = element_blank(),
       panel.grid.minor.x = element_blank()
     )
-  
+  plot(p_outbreaks)
   ggsave("outbreaks_over_time.png", p_outbreaks, width = 12, height = 6, dpi = 300)
   
+  merged_data$outbreak<-merged_data$outbreak_2
+  merged_data_subset <- merged_data %>%
+    select(year.x, month, year_month_label, outbreak)
+  
+  write.csv(merged_data_subset, "outbreaks_over_time_fig1a.csv", row.names = FALSE)
+
+
   # =========================================================
-  # 4) CREATE NEIGHBOR MATRIX (SPATIAL ADJACENCY)
+  # 4) BUILD SPATIAL ADJACENCY MATRIX
   # =========================================================
+  # Repair invalid polygon geometries before calculating adjacency.
   shape2 <- st_make_valid(shape2)
+
+  # Convert the sf object for use with spdep neighbour functions.
   shapefile_spatial <- as(shape2, "Spatial")
+
+  # Identify districts that share a boundary or vertex (queen contiguity).
   nb <- poly2nb(shapefile_spatial, queen = TRUE)
+
+  # Convert the neighbour list into a binary district-by-district matrix.
   W_matrix <- as.matrix(nb2mat(nb, style = "B", zero.policy = TRUE))
   rownames(W_matrix) <- shape2$district_country.x
   colnames(W_matrix) <- shape2$district_country.x
   
-  # Check for merge consistency
+  # Stop if any district in the outbreak data is absent from the shapefile.
   missing_in_shape <- setdiff(merged_data$district_country.x, shape2$district_country.x)
   if (length(missing_in_shape) > 0) {
     stop("districts are in merged_data but not in shapefile: ", paste(missing_in_shape, collapse = ", "))
   }
   
+  # Remove shapefile districts that have no corresponding outbreak data.
   missing_in_data <- setdiff(shape2$district_country.x, merged_data$district_country.x)
   if (length(missing_in_data) > 0) {
     message("Dropping ", length(missing_in_data), " districts from shapefile:\n",
@@ -102,6 +117,7 @@ burnett_func <- function() {
     W_matrix <- W_matrix[shape2$district_country.x, shape2$district_country.x, drop = FALSE]
   }
   
+  # Confirm that both data sources now contain the same districts.
   if (!identical(sort(unique(merged_data$district_country.x)),
                  sort(unique(shape2$district_country.x)))) {
     stop("District-country lists differ")
@@ -109,29 +125,38 @@ burnett_func <- function() {
     message("Matches verified.")
   }
   
-  # Ensure consistent ordering
+  # Apply a shared district ordering and assign each district its area index.
   shape2 <- shape2[order(shape2$district_country.x), ]
   merged_data <- merged_data[order(merged_data$district_country.x), ]
   merged_data$area <- match(merged_data$district_country.x, shape2$district_country.x)
   
   # =========================================================
-  # 5) IDENTIFY FIRST OUTBREAKS (GAP > 2 MONTHS RULE)
+  # 5) IDENTIFY FIRST OUTBREAK EVENTS (GAP > 2 MONTHS)
   # =========================================================
+  # Keep outbreak observations and order them within each district over time.
   first_outbreaks <- merged_data %>%
     filter(outbreak_2 == 1) %>%
     arrange(district_country.x, year_month) %>%
     group_by(district_country.x) %>%
+
+    # Compare each outbreak with the previous outbreak in the same district.
     mutate(
       prev_year_month = lag(year_month),
       prev_year = lag(year.x),
       months_since_last = year_month - prev_year_month,
+
+      # A new outbreak starts after more than two months without an outbreak.
       is_first = case_when(
         is.na(prev_year_month) ~ TRUE,
         months_since_last > 2 ~ TRUE,
         TRUE ~ FALSE
       )
     ) %>%
+
+    # Retain only the first outbreak in each outbreak episode.
     filter(is_first == TRUE) %>%
+
+    # Remove temporary calculation columns from the final result.
     select(-prev_year_month, -prev_year, -months_since_last, -is_first) %>%
     ungroup()
   
@@ -139,44 +164,53 @@ burnett_func <- function() {
   print(names(first_outbreaks))
   
   # =========================================================
-  # 6) CLUSTER OUTBREAKS BY SPACE + TIME
+  # 6) IDENTIFY SPATIOTEMPORAL OUTBREAK CLUSTERS
   # =========================================================
   identify_clusters <- function(outbreaks_df, W_matrix) {
+    # Store each cluster and assign it a sequential identifier.
     all_clusters <- list()
     cluster_id <- 1
     processed_rows <- integer(0)
     
+    # Add stable row identifiers so clustered observations are not reused.
     outbreaks_df <- outbreaks_df %>%
       arrange(year_month) %>%
       mutate(row_id = row_number())
     
+    # Use each unprocessed outbreak as the starting point for a cluster search.
     for (i in 1:nrow(outbreaks_df)) {
       if (i %in% processed_rows) next
       
+      # Define the current outbreak's district and time window.
       current_district <- outbreaks_df$district_country.x[i]
       current_year <- outbreaks_df$year.x[i]
       current_year_month <- outbreaks_df$year_month[i]
       
-      # same year, within ±2 months
+      # Find outbreaks in the same year and within two months of the current event.
       concurrent_outbreaks <- outbreaks_df %>%
         filter(year.x == current_year, abs(year_month - current_year_month) <= 2)
       
+      # Keep only districts represented in the spatial adjacency matrix.
       affected_districts <- concurrent_outbreaks$district_country.x
       valid_districts <- affected_districts[affected_districts %in% rownames(W_matrix)]
       if (length(valid_districts) == 0) next
       
+      # Build a graph for the affected districts and find connected components.
       W_subset <- W_matrix[valid_districts, valid_districts, drop = FALSE]
       g <- igraph::graph_from_adjacency_matrix(W_subset, mode = "undirected")
       comp <- igraph::components(g)
       
       if (current_district %in% names(comp$membership)) {
+        # Select the connected component containing the current district.
         component_id <- comp$membership[current_district]
         cluster_districts <- names(comp$membership[comp$membership == component_id])
         
+        # Assign the cluster ID to all matching districts in the time window.
         cluster_data <- concurrent_outbreaks %>%
           filter(district_country.x %in% cluster_districts) %>%
           mutate(outbreak_cluster_id = cluster_id)
         
+        # Save the cluster and mark its observations as processed.
         all_clusters[[cluster_id]] <- cluster_data
         processed_rows <- c(processed_rows, cluster_data$row_id)
         cluster_id <- cluster_id + 1
@@ -186,6 +220,7 @@ burnett_func <- function() {
     dplyr::bind_rows(all_clusters)
   }
   
+  # Apply the clustering function to the first outbreak events.
   outbreak_clusters <- identify_clusters(first_outbreaks, W_matrix)
   
   # =========================================================
