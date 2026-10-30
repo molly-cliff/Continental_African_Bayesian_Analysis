@@ -1,5 +1,7 @@
 # Spatiotemporal Modelling of Bacterial Meningitis Outbreaks using Climatic Drivers in Africa
 
+[![DOI](https://zenodo.org/badge/1354748639.svg)](https://doi.org/10.5281/zenodo.23803897)
+
 This repository contains the code used to develop a district-level Bayesian spatiotemporal model to estimate monthly meningitis risk across Africa using climatic and demographic variables. Building on our previous analysis, the current study investigates how the relationship between climatic factors and meningitis has evolved spatially and temporally across the continent.
 
 We analysed district-month (ADMN2) epidemic occurrences from 2003 to 2022, assessing the effects of specific humidity, wind speed and direction, dust, rainfall, and land cover. We also examined the influence of population density and the occurrence of MenAfriVac vaccination campaigns. The study uses the Integrated Nested Laplace Approximation (INLA) approach to account for spatial and temporal heterogeneity in meningitis outbreak occurrence.
