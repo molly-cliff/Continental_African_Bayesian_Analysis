@@ -1,11 +1,9 @@
-library(raster)
+
 library(terra)
 library(dplyr)
 library(stringr)
 library(sf)
-library(lubridate)
 
-testing_extract_aod <- function() {
   # Load input data
   weekly_data <- read.csv("full-outbreak-matched.csv")
   shape2 <- st_read("Shapefile_improved.shp")
@@ -134,4 +132,4 @@ print(na_aod)
 
 # Write output
 write.csv(final_data, "final_aod_data.csv", row.names = FALSE)
-}
+
