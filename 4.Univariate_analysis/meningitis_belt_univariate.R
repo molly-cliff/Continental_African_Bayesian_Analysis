@@ -147,6 +147,8 @@ univariate_analysis <-function() {
   print(outbreak_weight)
   
   
+  weights <- ifelse(merged_data$outbreak_2 == 1, outbreak_weight, non_outbreak_weight)
+  
   # Select variables
   vars <- c("rainfall",
             "north_wind", "humidity",      
@@ -189,8 +191,8 @@ univariate_analysis <-function() {
   
   
   vars_inla <- c(  "windspeed_scale","north_wind_scale", "humidity_scale",
-                 "vaccine", "pop_density_scale", "temp_scale", "temp_lag1",
-                 "eastward_wind","eastward_wind_scale","aod_scale", "cropland",
+                 "vaccine", "pop_density_scale", "temp_scale",
+                 "eastward_wind_scale","aod_scale", "cropland",
                  "barren", "forest"
   )
   
@@ -212,7 +214,7 @@ univariate_analysis <-function() {
       formula,
       data = merged_data,
       family = "binomial",
-      weights=weights, 
+      weights= weights, 
       control.predictor = list(compute = TRUE),
       control.compute = list(dic = TRUE, waic = TRUE, cpo = TRUE, config = TRUE)
     )
