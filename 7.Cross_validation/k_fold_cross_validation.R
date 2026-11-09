@@ -1012,5 +1012,3 @@ kfold_cross_val <-function() {
   
 }
   
-  
-  
