@@ -3,31 +3,27 @@
 [![DOI](https://zenodo.org/badge/1354748639.svg)](https://doi.org/10.5281/zenodo.23803897)
 
 
-This repository contains the code used to develop a district-level Bayesian spatiotemporal model to estimate monthly meningitis risk across Africa using climatic and demographic variables. Building on our previous analysis, the current study investigates how the relationship between climatic factors and meningitis has evolved spatially and temporally across the continent.
-This repository contains all author-generated code underpinning the findings in the manuscript, shared without restriction. 
-Within this study we analysed district-month (ADMN2) epidemic occurrences from 2003 to 2022, assessing the effects of specific humidity, wind speed and direction, dust, rainfall, and land cover. We also examined the influence of population density and the occurrence of MenAfriVac vaccination campaigns. The study uses the Integrated Nested Laplace Approximation (INLA) approach to account for spatial and temporal heterogeneity in meningitis outbreak occurrence.
-The analysis requires confidential outbreak data, so the code cannot be run end to end from this repository alone. The data provided to us were anonymised weekly counts per district, which we cleaned in Stata into a binary outbreak indicator (1/0) per district-month. An anonymised version of the final dataset is available at [link].
-Data availability
-The district-month outbreak data used in this study were provided by WHO-AFRO under a data-sharing agreement and cannot be shared publicly. To support transparency and reuse, we provide:
-Anonymised example dataset ([data/example_data.csv]) with the same structure, column names and variable types as the real analysis dataframe. It shows the exact format the code expects. It is not intended to reproduce the analysis, but is provided in full so that every step of the analysis can be inspected. We would recommend running any analyses with the anonymised example dataset on an HPC as the dataset is very large.
-The analysis dataframe has one row per ADMN2 district per month across Africa (2003-2022). It includes a 1/0 indicator for whether the district experienced an outbreak, and a 1/0 indicator for whether the district received a MenAfriVac campaign within the given month.
-Access to the original data can be requested via Clément Lingani who can be contacted at linganic@who.int for further advice. 
-Code for this manuscript is designed to be run in the order of folders.
-Final model outputs ([outputs/]) underlying the manuscript tables and figures (fixed-effect summaries, WAIC/DIC tables, cross-validation metrics), so that reported estimates can be checked without access to the confidential data.
+This repository contains the code used to develop a district-level Bayesian spatiotemporal model to estimate monthly meningitis risk across 18 African countries using climatic and demographic variables. Building on our previous analysis, the current study investigates how the relationship between climatic factors and meningitis has evolved spatially and temporally across the belt. Within this study we analysed district-month (ADMN2) epidemic occurrences from 2003 to 2022, assessing the effects of temperature, specific humidity, wind speed and direction, dust, rainfall, and land cover. We also examined the influence of population density and the occurrence of MenAfriVac vaccination campaigns. The study uses the Integrated Nested Laplace Approximation (INLA) approach via the R-INLA package to account for spatial and temporal heterogeneity in meningitis outbreak occurrence.
 
+# Data availability
+
+The district-month outbreak data used in this study were provided by WHO-AFRO under a data-sharing agreement and cannot be shared publicly. The data provided to us were anonymised weekly counts per district, which we cleaned in Stata into a binary outbreak indicator (1/0) per district-month.  Additionally, as the analysis relies on the use of district-level identifying geometry, which would reveal exact outbreak locations, the code cannot be run from this repository alone. To support transparency and reuse, we have provided an anonymised version of the final dataset at xxxxx with the same structure and variables as the original analysis data frame.
+
+As such this repository serves as an overview of the code used within each step of the analysis, as detailed within the respository contents below. Access to the original data can be requested via Clément Lingani who can be contacted at linganic@who.int for further advice. Additionally, as the underlying anonymised dataset is very large we reccomend running any analyses using it on an HPC.
 
 Spatial boundaries (ADMN2) are publicly available from [GADM v 4.2 / (https://gadm.org/data.html) ; the script that builds the spatial adjacency matrix from them is included (folder 2).
 Public input data for the climate and covariate variables are not stored in this repository. Sources:
 
 | Descriptor | Variable summary | INLA data source |
 |---|---|---|
-| Specific humidity | Monthly mean specific humidity (g/kg). Specific humidity refers to the mass of water vapour in a unit mass of moist air. | ERA5 reanalysis-ECMWF [1] |
+| Specific humidity | Monthly mean specific humidity (g/kg). Specific humidity refers to the mass of water vapour per unit mass of moist air. | ERA5 reanalysis – ECMWF [1] |
 | Rainfall | Monthly mean atmospheric precipitation (mm). | CHIRPS [2] |
-| Aerosol optical depth (dust) | Monthly mean measure of the extinction effect of atmospheric aerosols. | NASA MODIS [3] |
-| Land-use type | Yearly ADMN2 district-level proportions of land classified as barren land, forest, or cropland. | LUH2 [4] |
-| Wind speed | Monthly mean wind speed (m/s) at 10 m above ground level. | ERA5 reanalysis-ECMWF [1] |
-| Meridional wind component | Monthly mean meridional component of wind (m/s) at 10 m above ground level. Meridional refers to north/south (longitudinal flow). | ERA5 reanalysis-ECMWF [1] |
-
+| Aerosol optical depth (dust) | Monthly mean measure of the light extinction effect of atmospheric aerosols. | NASA MODIS [3] |
+| Land-use type | Yearly ADM2 district-level proportions of land classified as barren land, forest, or cropland. | LUH2 [4] |
+| Wind speed | Monthly mean wind speed (m/s) at 10 m above ground level. | ERA5 reanalysis – ECMWF [1] |
+| Meridional wind component | Monthly mean meridional wind component (m/s) at 10 m above ground level. Meridional refers to north–south wind flow. | ERA5 reanalysis – ECMWF [1] |
+| Surface-level temperature | Monthly mean surface air temperature. | NASA AIRS [5] |
+| Population density | Population density at five-year intervals (2005, 2010, 2015, and 2020). Calculated by dividing the population count grid for each target year by the corresponding gridded land area. | SEDAC [6] |
 
 1. Hersbach H, Bell B, Berrisford P, Biavati G, Horányi A, Muñoz Sabater J, et al. ERA5 monthly averaged data on single levels from 1940 to present; 2023 [cited 2026 Aug 27]. Database: Copernicus Climate Change Service (C3S) Climate Data Store (CDS) [Internet]. doi: 10.24381/cds.f17050d7
 2. Funk C, Peterson P, Landsfeld M, Pedreros D, Verdin J, Shukla S, et al. The climate hazards infrared precipitation with stations-a new environmental record for monitoring extremes. Sci Data. 2015 Dec 8:2:150066. doi: 10.1038/sdata.2015.66
@@ -37,14 +33,9 @@ Public input data for the climate and covariate variables are not stored in this
 6. Center for International Earth Science Information Network (CIESIN), Columbia University. Gridded Population of the World, Version 4 (GPWv4): Population Density, Revision 11 (Version 4.11) [dataset]. Palisades (NY): Socioeconomic Data and Applications Center (SEDAC); 2017. doi:10.7927/H49C6VHW. Accessed 27 Aug 2026.
 Gridded values were aggregated to ADMN2-month mean values using terra::extract. Continuous covariates (temperature, humidity, rainfall, meridional and zonal wind, wind speed, AOD and population density) were standardised to z scores using the scale  function in base R
 
-
 # System Requirements
 
-1.R version 4.6 
-
-2.R-INLA version 26.06.08  (not on CRAN; version can be installed via the following command: remotes::install_version("INLA", version = "26.06.08", repos = c(getOption("repos"), INLA = "https://inla.r-inla-download.org/R/testing"), dep = TRUE) 
-
-3. Additional key packages: dplyr 1.2.1   , sf 1.1-1, sp 2.2-1 , spdep 1.4-2 , ggplot24.0.3 , pROC1.19.0.1, terra1.9-34, Matrix 1.7-5.
+Within this analysis we used R version 4.6, and R-INLA version 26.06.08  (not on CRAN; version can be installed via the following command: remotes::install_version("INLA", version = "26.06.08", repos = c(getOption("repos"), INLA = "https://inla.r-inla-download.org/R/testing"), dep = TRUE). Additional key packages are as follows:  dplyr 1.2.1 , sf 1.1-1,sp 2.2-1 ,spdep 1.4-2 ,ggplot24.0.3 ,pROC1.19.0.1, terra 1.9-34, Matrix 1.7-5.
 
 # Repository contents
 
