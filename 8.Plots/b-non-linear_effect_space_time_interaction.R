@@ -1,7 +1,5 @@
 
-non_linear_plots <- function() {
-  
-  # ---- Libraries ----
+# ---- Libraries ----
   library(dplyr)
   library(INLA)
   library(sf)
@@ -211,6 +209,12 @@ non_linear_plots <- function() {
     # Keep a clean table for inspection or later export.
     year_eff <- time_eff %>%
       dplyr::select(year_month, time_date, mean, lower, upper, sd, kld)
+
+    write.csv(
+      year_eff,
+      file.path(out_dir, "temporal_effect_data.csv"),
+      row.names = FALSE
+    )
     
     # Plot the temporal effect if the date mapping succeeded.
    
@@ -229,6 +233,8 @@ non_linear_plots <- function() {
         plot = p_time,
         width = 10, height = 5, units = "in", dpi = 300, bg = "white"
       )
+
+  }
    
   
 
@@ -273,6 +279,12 @@ non_linear_plots <- function() {
     }
     
     df <- rbind(make_df(0), make_df(1))
+
+    write.csv(
+      df,
+      file.path(out_dir, "aod_winddir_interaction_data.csv"),
+      row.names = FALSE
+    )
     
     wind_labels <- c('0' = "West to East", '1' = "East to West")
     
@@ -289,7 +301,6 @@ non_linear_plots <- function() {
   
   p_int <- plot_aod_winddir_interaction_no_covfixed(model)
   ggsave("aod_by_winddir_logodds.png", p_int, width = 8, height = 5)
-  }
 
     # ============================================================
     # 10. PREPARE AND PLOT THE SPATIAL BYM2 RANDOM EFFECT
@@ -317,6 +328,14 @@ non_linear_plots <- function() {
     map_df <- shape2 %>%
       left_join(area_eff2, by = "district_country.x")
 
+    map_df %>%
+      st_drop_geometry() %>%
+      select(district_country.x, area_id, mean, lower, upper) %>%
+      write.csv(
+        file.path(out_dir, "spatial_bym2_effect_data.csv"),
+        row.names = FALSE
+      )
+
     # Plot and save posterior mean spatial effects by district.
     p_spatial_mean <- ggplot(map_df) +
       geom_sf(aes(fill = mean), color = NA) +
@@ -335,4 +354,4 @@ non_linear_plots <- function() {
     )
 
     print(p_spatial_mean)
-}
+
