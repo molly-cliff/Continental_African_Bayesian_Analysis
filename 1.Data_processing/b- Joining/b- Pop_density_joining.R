@@ -1,15 +1,7 @@
-library(raster)
 library(terra)
 library(dplyr)
 library(stringr)
 library(sf)
-library(lubridate)
-library(sf)
-library(terra)
-library(dplyr)
-library(stringr)
-
-popdensityextract <- function() {
 
   # Load input data
   spatiotemporaloutbreaks <- read.csv("joined_outbreak_vaccine_data.csv")
@@ -82,4 +74,4 @@ popdensityextract <- function() {
   # Export final dataset
   write.csv(final_data, "final_popdensity_vaccine.csv", row.names = FALSE)
   cat("Final dataset saved as final_popdensity_vaccine.csv\n")
-}
+

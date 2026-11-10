@@ -3,20 +3,11 @@ library(INLA)
 library(sf)
 library(spdep)
 library(sp)
-library(caret)
-library(pROC)
-library(tidyr)
-library(PRROC)
-library(broom)
 library(corrplot)
 library(car)
-library(ggplot2)
-library(reshape2)
-library(Hmisc)
 library(writexl)
 
-univariate_analysis <-function() {
-  # Left join all environmental datasets onto spatiotemporaloutbreaks
+  # 1. Load and filter outbreak and environmental data
   
   spatiotemporaloutbreaks <- read.csv("final_popdensity_vaccine.csv")
   print(names(spatiotemporaloutbreaks))
@@ -47,16 +38,9 @@ univariate_analysis <-function() {
                                                         "Niger", "Nigeria", "Rwanda", "Senegal", "South Sudan", "Sudan", "Tanzania",
                                                         "Togo", "Uganda"), ]
   
-  # 2. Check and fix invalid geometries
-  shape2 <- st_make_valid(shape2)  # Optionally fix geometries
-  
-  # Optional: Remove invalid ones instead
-  # shape2 <- shape2[st_is_valid(shape2), ]
-  
-  # 3. Convert to Spatial* object
+  # 2. Prepare spatial data and neighbourhood structure
+  shape2 <- st_make_valid(shape2)
   shapefile_spatial <- as(shape2, "Spatial")
-  
-  # 4. Create neighborhood structure
   nb <- poly2nb(shapefile_spatial, queen = TRUE)
   
   nb2INLA("map.adj", nb)
@@ -72,7 +56,7 @@ univariate_analysis <-function() {
          paste(missing_in_shape, collapse = ", "))
   }
   
-  # --- 2. In shape but not in data ---
+  # Check for shapefile districts that are not in the outbreak data.
   missing_in_data <- setdiff(shape2$district_country.x, merged_data$district_country.x)
   
   if (length(missing_in_data) > 0) {
@@ -85,7 +69,7 @@ univariate_analysis <-function() {
   }
   
   
-  # --- 3. Check sorted lists match ---
+  # Confirm that both data sources contain the same districts.
   if (!identical(sort(unique(merged_data$district_country.x)),
                  sort(unique(shape2$district_country.x)))) {
     stop("dstrict-country lists differ even after sorting!")
@@ -93,39 +77,16 @@ univariate_analysis <-function() {
     message("matches verified.")
   }
   
-  # Ensure consistent ordering
-  shape2 <- shape2[order(shape2$district_country.x), ]
-  merged_data <- merged_data[order(merged_data$district_country.x), ]
-  
-  # Assign IDs
-  merged_data$area <- match(merged_data$district_country.x, shape2$district_country.x)
-  
-  
+  # Ensure consistent district ordering and assign area IDs.
   shape2 <- shape2[order(shape2$district_country.x), ]
   merged_data <- merged_data[order(merged_data$district_country.x), ]
   merged_data$area <- match(merged_data$district_country.x, shape2$district_country.x)
-  
-  
 
   
-  # Step 2: Calculate monthly climatology for multiple variables
-  climatology <- merged_data %>%
-    group_by(month) %>%
-    summarise(across(c(temp, rainfall,windspeed,eastward_wind, north_wind, humidity, pop_density, aod, cropland, forest, barren), ~ mean(.x, na.rm = TRUE), .names = "clim_{.col}"))
   
-  # Step 3: Join climatology to full dataset and compute anomalies
-  merged_data <- merged_data %>%
-    left_join(climatology, by = "month") %>%
-    mutate(across(c(temp, rainfall,windspeed,eastward_wind, north_wind, humidity, pop_density, aod, cropland, forest, barren),
-                  ~ .x - get(paste0("clim_", cur_column())),
-                  .names = "{.col}_anomaly"))
-  
-  # Inspect results
   head(merged_data)
-  
-  
-  
-  
+
+  # 3. Calculate outcome weights for the INLA models
   test<-table(merged_data$outbreak_2)
   test<-as.data.frame(test)
   print("OUTBREAK OCCURANCE:")
@@ -149,18 +110,16 @@ univariate_analysis <-function() {
   
   weights <- ifelse(merged_data$outbreak_2 == 1, outbreak_weight, non_outbreak_weight)
   
-  # Select variables
+  # 4. Assess correlations among environmental covariates
   vars <- c("rainfall",
             "north_wind", "humidity",      
             "windspeed",
             "cropland","eastward_wind",
             "barren",  "vaccine","temp","forest","aod","pop_density")
   
-  # Compute correlation matrix
   corr_matrix <- cor(merged_data[, vars], use = "complete.obs")
   
   
-  # Save corrplot as PNG
   png("my_corrplot.png", width = 1200, height = 1000, res = 150)  # Adjust size/resolution if needed
   corrplot(corr_matrix, method = "color", type = "upper", 
            addCoef.col = "black", number.cex = 1.2, tl.cex = 1.2,
@@ -168,8 +127,7 @@ univariate_analysis <-function() {
   dev.off()  # Close the PNG device
   
   
-  # ==== VIF Analysis ====
-  
+  # 5. Standardise covariates and assess multicollinearity
 
   merged_data$rainfall_scale<- scale(merged_data$rainfall)
   merged_data$windspeed_scale<- scale(merged_data$windspeed)
@@ -178,9 +136,6 @@ univariate_analysis <-function() {
   merged_data$humidity_scale<- scale(merged_data$humidity)
   merged_data$aod_scale<- scale(merged_data$aod)
   merged_data$pop_density_scale<- scale(merged_data$pop_density)
-  merged_data$cropland_scale<- scale(merged_data$cropland)
-  merged_data$forest_scale<- scale(merged_data$forest)
-  merged_data$barren_scale<- scale(merged_data$barren)
   merged_data$temp_scale<- scale(merged_data$temp)
   
   test_model<-glm(outbreak_2 ~ aod + eastward_wind + north_wind + humidity + windspeed + cropland + barren +forest + vaccine + temp + pop_density_scale, data = merged_data)
@@ -188,18 +143,12 @@ univariate_analysis <-function() {
   vif<-vif(test_model)
   print(vif)
  
-  
-  
-  vars_inla <- c(  "windspeed_scale","north_wind_scale", "humidity_scale",
+  # 6. Fit one spatial-temporal INLA model per covariate
+  vars_inla <- c("windspeed_scale", "north_wind_scale", "humidity_scale",
                  "vaccine", "pop_density_scale", "temp_scale",
                  "eastward_wind_scale","aod_scale", "cropland",
                  "barren", "forest"
   )
-  
-  
-  
-  
-  
   posterior_table_m2 <- data.frame()
   
   for (var in vars_inla) {
@@ -239,7 +188,7 @@ univariate_analysis <-function() {
     cat("DIC:", M5$dic$dic, ", WAIC:", M5$waic$waic, "\n")
   }
   
-  # Final cleanup and export
+  # 7. Calculate odds ratios and export model results
   rownames(posterior_table_m2) <- 1:nrow(posterior_table_m2)
   print(posterior_table_m2)
   
@@ -251,5 +200,5 @@ univariate_analysis <-function() {
   
   write_xlsx(posterior_table_m2_or, path = "univariate_analysis.xlsx")
   
-}
+
   

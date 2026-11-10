@@ -1,11 +1,10 @@
-library(raster)
+
+library(lubridate)
 library(terra)
 library(dplyr)
 library(stringr)
 library(sf)
-library(lubridate)
 
-testing_extract_datameridonal_zonal <- function(raster_file) {
   # Load input data
   weekly_data <- read.csv("full-outbreak-matched.csv")
   shape2 <- st_read("Shapefile_improved.shp")
@@ -129,5 +128,4 @@ testing_extract_datameridonal_zonal <- function(raster_file) {
   # Write output to CSV
   write.csv(final_data, "final_meridonal_zonal_data.csv", row.names = FALSE)
   
-  return(final_data)
-}
+  

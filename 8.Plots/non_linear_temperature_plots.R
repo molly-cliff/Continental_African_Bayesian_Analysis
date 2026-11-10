@@ -73,6 +73,13 @@ plot <- ggplot(outbreak_data, aes(x = temp_c)) +
 
 
 ggsave("histo.png", plot, width = 8, height = 5, dpi = 300)
+
+# Export the observations underlying the histogram
+write.csv(
+  outbreak_data,
+  "histo_data.csv",
+  row.names = FALSE
+)
   
   # ---- Read shapefile & build adjacency ----
   shape2 <- st_read("Shapefile_improved.shp", quiet = TRUE)
@@ -289,6 +296,22 @@ ggsave("histo.png", plot, width = 8, height = 5, dpi = 300)
     height = 5,
     dpi = 300,
     bg = "white"
+  )
+
+  # Export the data underlying the temperature-effect plot
+  temperature_effect_data <- temp_eff %>%
+    transmute(
+      temperature_c = temp_c,
+      temperature_k = temp_k,
+      effect_log_odds = mean,
+      lower_95_log_odds = `0.025quant`,
+      upper_95_log_odds = `0.975quant`
+    )
+
+  write.csv(
+    temperature_effect_data,
+    "temp_nonlin_effect_fixed.csv",
+    row.names = FALSE
   )
 
     }

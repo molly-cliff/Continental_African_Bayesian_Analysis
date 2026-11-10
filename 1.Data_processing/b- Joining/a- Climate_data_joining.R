@@ -1,19 +1,5 @@
-library(dplyr)
-library(INLA)
-library(sf)
-library(spdep)
-library(sp)
-library(caret)
-library(pROC)
-library(tidyr)
-library(broom)
-library(corrplot)
-library(car)
-library(ggplot2)
-library(reshape2)
+ library(dplyr)
 
-data_join <-function() {
-  library(dplyr)
   dataset_files <- list(
     rainfall = "final_rainfall_data.csv",
     meridonal_zonal = "final_meridonal_zonal_data.csv",
@@ -88,37 +74,12 @@ data_join <-function() {
   existing_vars <- intersect(myvars, names(merged_data))
   merged_data <- merged_data[, existing_vars]
   
-  # Data structure and summary
-  print("---- Structure of merged data ----")
-  str(merged_data)
-  
-  print("---- Summary statistics ----")
+
+ print(str(merged_data))
   print(summary(merged_data))
-  
-  print("---- Missing values per column ----")
-  na_counts <- sapply(merged_data, function(x) sum(is.na(x)))
-  print(na_counts)
-  
-  print("---- Proportion of missing values per column ----")
-  na_proportion <- round(na_counts / nrow(merged_data), 3)
-  print(na_proportion)
-  
-  # Summary for numeric columns
-  numeric_cols <- sapply(merged_data, is.numeric)
-  print("---- Means and ranges for numeric columns ----")
-  print(summary(merged_data[, numeric_cols]))
-  
-  # Unique counts for character columns
-  categorical_cols <- sapply(merged_data, is.character)
-  print("---- Unique values for character columns ----")
-  unique_counts <- sapply(merged_data[, categorical_cols, drop = FALSE], function(x) length(unique(x)))
-  print(unique_counts)
-  
-  # Example rows
-  print("---- Example rows ----")
   print(head(merged_data, 10))
   
-  
+  ##### HERE WE DO LANDCOVER SEPERATELY- AS UNLIKE OTHER VARIABLES LANDCOVER DATA IS ONLY AVAILABLE ON A YEARLY BASIS AND NOT MONTHLY. SO WE NEED TO MERGE IT SEPERATELY. #####
   landcover_data <- read.csv("final_landcover_data.csv", stringsAsFactors = FALSE)
   
   # Create merge key in landcover data
@@ -126,9 +87,7 @@ data_join <-function() {
   
   # Create same merge key in merged_data
   merged_data$year_district <- paste(merged_data$year, merged_data$district_country, sep = " ")
-  
-  # Deduplicate landcover data (optional, in case there are duplicates)
-  landcover_data <- landcover_data %>% distinct(year_district, .keep_all = TRUE)
+
   
   # Merge landcover onto merged_data
   merged_data <- merged_data %>%
@@ -137,39 +96,12 @@ data_join <-function() {
   # Optional: Remove the temporary merge key
   merged_data$year_district <- NULL
   merged_data<- na.omit(merged_data)
-  # Check final structure
-  print("---- Structure after merging landcover ----")
-  str(merged_data)
-  
-  # Data structure and summary
-  print("---- Structure of merged data ----")
-  str(merged_data)
-  
-  print("---- Summary statistics ----")
+
+
+
+  print(str(merged_data))
   print(summary(merged_data))
-  
-  print("---- Missing values per column ----")
-  na_counts <- sapply(merged_data, function(x) sum(is.na(x)))
-  print(na_counts)
-  
-  print("---- Proportion of missing values per column ----")
-  na_proportion <- round(na_counts / nrow(merged_data), 3)
-  print(na_proportion)
-  
-  # Summary for numeric columns
-  numeric_cols <- sapply(merged_data, is.numeric)
-  print("---- Means and ranges for numeric columns ----")
-  print(summary(merged_data[, numeric_cols]))
-  
-  # Unique counts for character columns
-  categorical_cols <- sapply(merged_data, is.character)
-  print("---- Unique values for character columns ----")
-  unique_counts <- sapply(merged_data[, categorical_cols, drop = FALSE], function(x) length(unique(x)))
-  print(unique_counts)
-  
-  # Example rows
-  print("---- Example rows ----")
   print(head(merged_data, 10))
   
   write.csv(merged_data, "joined_outbreak_data.csv", row.names = FALSE)
-}
+

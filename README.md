@@ -39,13 +39,39 @@ Within this analysis we used R version 4.6, and R-INLA version 26.06.08  (not on
 
 # Repository contents
 
-1. Data_processing: Code used to process and extract district-month level data on specific humidity, wind speed and direction, dust, rainfall, and land cover for inclusion in the spatiotemporal model. Data are first extracted for each climatic variable using the code in the Extraction folder, then joined using the Climate data joining and Population data joining files. Data are joined onto a larger outbreak dataframe, described under Data availability. Because this step uses confidential data, it cannot be run with the example dataset.
-   
-2. Space_time_analysis: Examination of spatial and temporal random-effects structures to determine which components should be included in the climatic model. Candidate structures compared: [e.g. BYM2, iid, RW1/RW2, seasonal], selected using [WAIC/DIC]. Spatial adjacency matrix. The adjacency structure was built from ADMN2 boundaries ([GADM v x.x / geoBoundaries]) using queen contiguity (spdep::poly2nb) and converted to an INLA graph with nb2INLA. 
+1. [Data_processing](https://github.com/molly-cliff/Continental_African_Bayesian_Analysis/tree/main/1.Data_processing): First, climatic variables were extracted on a district (ADM2) month level following the code within the [extraction folder](https://github.com/molly-cliff/Continental_African_Bayesian_Analysis/tree/main/1.Data_processing/a-Extraction) for each variable. Here, the file shape2 refers to the African continent-wide shapefile built using country-level shapefiles from GADM. The full outbreak matched file represents district-month-level outbreak occurrence from Africa between 2003 and 2022. Alongside this within the landcover file LUH2 state data representing the fractions of each grid-cell occupied by various land uses in a given year were aggregated into categories representing land-use states associated with meningitis outbreak occurrence/non-occurence within the literature (barren, forested, cropland).
 
-3. Outbreak cluster analysis: Analysis informing Figures 1a and 1b of the manuscript, examining the number, timing, and geographic distribution of meningitis outbreak events across Africa. Here we pull in the outbreak dataset, examine the number of district-month affected by an outbreak for Figure 1a. Alongside this we also create an  adjacency matrix, clustering outbreaks by districts adjoining and concurrent month to create a map of number of districts affected by an outbreak
-4. Univariate analysis: Assessment of the univariate relationships between climatic and socioeconomic variables and district-month-level bacterial meningitis outbreak occurrence. This also includes the Pearson correlation coefficients (Supplementary Information) and VIF analysis for collinearity ([threshold, e.g. VIF > 5]). Alongside this both we provide code to calculate both the odds and log odds of variable association with district-month outbreak occurrence
-5. Multivariate analysis: Stepwise multivariate analysis examining the relationships between climatic and socioeconomic variables and district-month-level bacterial meningitis outbreak occurrence. Variables were retained if [criterion, e.g. improved WAIC].
+Following this, the joining [sub-folder](https://github.com/molly-cliff/Continental_African_Bayesian_Analysis/tree/main/1.Data_processing/b-Joining) was used to combine the extracted climatic variables from the different data sources into a single outbreak–climate dataset. This was first done through running [Climate_data_joining](https://github.com/molly-cliff/Continental_African_Bayesian_Analysis/tree/main/1.Data_processing/b-Joining/Climate_data_joining.R) Following on from this we created an additional variable (MenAfriVac campaign status), providing the district-month locations and timing of MenAfriVac campaigns, using campaign data provided by WHO AFRO. Due to the sensitive nature of this data, the associated R file cannot be shared. Finally, the [pop_density_joining script] ((https://github.com/molly-cliff/Continental_African_Bayesian_Analysis/tree/main/1.Data_processing/b-Joining/Pop_density_joining.R) was run to extract and merge population density data with the existing dataset, producing the final analytical dataset used in the subsequent analyses.
+
+edit source of pop density data.
+
+2. Space_time_analysis: This folder contains the examination and selection of spatial and temporal random-effects structures for the climatic INLA model. Temporal structures (AR1, RW1 and RW2) were compared, considering month as both a continuous and cyclic variable, alongside four spatial structures (Besag, Besag proper, BYM and BYM2). The temporal and spatial components were assessed separately using WAIC/DIC, with the temporal analysis conducted first, followed by the spatial analysis. The results of these comparisons are provided in the minimal dataset.
+
+Based on these comparisons, an RW2 temporal effect, with month treated as continuous, and a BYM2 spatial effect were selected for subsequent analyses, which were restricted to meningitis belt countries. The spatial_random_effects script also constructs the spatial adjacency matrix using GADM ADM2 boundaries and queen contiguity (spdep::poly2nb()), before converting it into an INLA-compatible graph using nb2INLA(). This graph was subsequently used throughout the remaining climatic analyses.
+
+3. Outbreak_cluster_analysis: This folder contains the initial outbreak analysis informing  Figures 1a and 1b of the manuscript, examining the number, timing, and geographic distribution of meningitis outbreak events across Africa. Here we pull in the outbreak dataset, examine the number of district-month affected by an outbreak and use this to create Figure 1a.  Following on from this we created Figure 1b, which defined the number of seperate outbreak events on a ADMN district level across Africa from 2003-2022. To achieve this we built an  adjacency matrix to define neighbouring districts affected by the same outbreak event and defined seperate outbreak events through creating a lag effect defining the time gapp between outbreaks within the same district.
+
+4. Univariate analysis: Here we carry out a univariate analysis of climatic and socioeconomic variable relationships with district-month level bacterial meningitis outbreaks. Using the results from the space-time analysis here we have included a BYM2 spatial effect, a continuous RW2 temporal effect for month, and inverse probability weighting due to the rareity of outbreak events. Continuous covariates (temperature, humidity, rainfall, meridional and zonal wind, wind speed, dust and population density have been standardised to z scores). The univariate analysis provides both the odds and log odds of variable association with district-month outbreak occurrence. Prior to the univariate analysis, this R script also assesses for variable collinearity through the calculation of the Pearson correlation coefficients (Supplementary Information) and VIF analysis for collinearity (threshold VIF > 5]). This analysis led to the inclusion of temperature as the first variable within our stepwise analysis.
+
+5. Multivariate analysis: Here we follow a stepwise analysis adding in climatic/socioeconomic variables linearly based on changes in WAIC and DIC, statistical significance as well as epidemiological relevance. The minimal dataset supporting this analysis provies the WAIC and DIC values for all variables at each step. Models are run in order a-d, with zonal wind, dust and humidity being added to the model in each sequential step.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 6. Non-linearity and interactions: Evaluation of non-linear relationships using RW2 effects for included explanatory variables, as well as assessment of the interaction between dust and zonal wind. These are run in order with the multivariate step_1 file preceding the step 2 file.
 7. Cross-validation: Stratified five-fold cross-validation of the final model, with predictive performance evaluated using the Brier score, log loss, and area under the receiver operating characteristic curve (ROC AUC) (Figure 5). Folds were stratified by [outcome / district / time].
 8. Plots: Final model and plots for random effects (temperature, space, and time), as well as the interaction effect between dust and wind (Figures 2-4 and Supplementary). A GIF of monthly predicted probability across Africa is also included here (Supplementary Information) [or: hosted in the supplementary repository, DOI].

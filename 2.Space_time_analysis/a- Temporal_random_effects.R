@@ -1,26 +1,15 @@
 
+
+
 library(INLA)
-library(ggplot2)
-library(mgcv)
-library(dplyr)
-library(DAAG)
-library(reshape2)
+library(sf)
+library(spdep)
+library(sp)
 library(writexl)
 
-
-# =====================================================================
-# Function: monthly_models_test3
-# Description: 
-#   - Aggregates outbreak data by month and district
-#   - Fits several temporal INLA models (RW1, RW2, AR1)
-#   - Compares model performance (DIC, WAIC, Log CPO)
-#   - Exports model comparison results to Excel
-# =====================================================================
-
-monthly_models_test3 <- function() {
-  
   # ----------------------------------------------------------
-  # STEP 1: Read and inspect data
+  # STEP 1: Read and inspect data, here we are just looking at outbreak across space and time,
+  #         and we want to model the temporal component of the data, so vaccine data not needed.
   # ----------------------------------------------------------
   spatiotemporaloutbreaks <- read.csv("full-outbreak-matched.csv")
   print(head(spatiotemporaloutbreaks))
@@ -210,4 +199,4 @@ monthly_models_test3 <- function() {
   
   # Save results
   write_xlsx(dic, path = "model_comparison_temporal.xlsx")
-}
+
