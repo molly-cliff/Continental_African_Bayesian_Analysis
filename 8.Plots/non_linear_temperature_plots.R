@@ -6,16 +6,13 @@ temp_debug <- function() {
   library(sf)
   library(spdep)
   library(sp)
-  library(tidyr)
-  library(tibble)
   library(ggplot2)
-  library(stringr)
-  library(lubridate)
   
-  # ---- Output folder ----
+  # ============================================================
+  # 1. LOAD AND PREPARE OUTBREAK DATA
+  # ============================================================
 
-  
-  # ---- Load data ----
+  # Load the joined outbreak and environmental dataset.
   spatiotemporaloutbreaks <- read.csv("final_popdensity_vaccine.csv")
   spatiotemporaloutbreaks$year_month <-
     (spatiotemporaloutbreaks$year.x - min(spatiotemporaloutbreaks$year.x, na.rm = TRUE)) * 12 +
@@ -38,50 +35,51 @@ temp_debug <- function() {
   )
   merged_data <- merged_data[merged_data$country %in% keep_countries, ]
 
+  # Convert temperature from Kelvin to Celsius for the histogram.
+  merged_data$temp_c <- merged_data$temp - 273.15
 
-  # Convert temperature from Kelvin to Celsius
-merged_data$temp_c <- merged_data$temp - 273.15
+  # ============================================================
+  # 2. PLOT TEMPERATURE DISTRIBUTION DURING OUTBREAKS
+  # ============================================================
 
-# Keep rows with non-missing values
-plot_data <- merged_data[!is.na(merged_data$temp_c) & !is.na(merged_data$outbreak_2), ]
+  # Select district-month observations with an outbreak.
+  outbreak_data <- merged_data[
+    merged_data$outbreak_2 == 1 & !is.na(merged_data$temp_c),
+  ]
 
-# Histogram-style bar plot:
-# counts of months, split by outbreak status (0 = no outbreak, 1 = outbreak)
-library(ggplot2)
+  # Plot the distribution of temperatures observed during outbreaks.
+  plot <- ggplot(outbreak_data, aes(x = temp_c)) +
+    geom_histogram(
+      binwidth = 1,
+      fill = "#2085f0",
+      color = "white",
+      linewidth = 1.2
+    ) +
+    labs(
+      x = "Temperature (°C)",
+      y = "Total district-months experiencing bacterial meningitis outbreaks"
+    ) +
+    theme_minimal(base_size = 10) +
+    theme(
+      axis.title = element_text(size = 10),
+      axis.text = element_text(size = 10),
+      plot.margin = margin(10, 10, 10, 10)
+    )
 
-outbreak_data <- merged_data[
-  merged_data$outbreak_2 == 1 & !is.na(merged_data$temp_c),
-]
+  # Save the histogram and its source data.
+  ggsave("histo.png", plot, width = 8, height = 5, dpi = 300)
 
-plot <- ggplot(outbreak_data, aes(x = temp_c)) +
-  geom_histogram(
-    binwidth = 1,
-    fill = "#2085f0",
-    color = "white",     # outlines each bar so they read as separate blocks
-    linewidth = 1.2       # thicker white line = bigger visual gap between bars
-  ) +
-  labs(
-    x = "Temperature (°C)",
-    y = "Total district-months experiencing bacterial meningitis outbreaks"
-  ) +
-  theme_minimal(base_size = 10) +        # dialed back down from the last version
-  theme(
-    axis.title = element_text(size = 10),
-    axis.text = element_text(size = 10),
-    plot.margin = margin(10, 10, 10, 10)
+  write.csv(
+    outbreak_data,
+    "histo_data.csv",
+    row.names = FALSE
   )
-
-
-ggsave("histo.png", plot, width = 8, height = 5, dpi = 300)
-
-# Export the observations underlying the histogram
-write.csv(
-  outbreak_data,
-  "histo_data.csv",
-  row.names = FALSE
-)
   
-  # ---- Read shapefile & build adjacency ----
+  # ============================================================
+  # 3. PREPARE SPATIAL DATA AND ADJACENCY STRUCTURE
+  # ============================================================
+
+  # Read and restrict the district shapefile.
   shape2 <- st_read("Shapefile_improved.shp", quiet = TRUE)
   shape2 <- shape2[shape2$COUNTRY %in% keep_countries, ]
   shape2 <- st_make_valid(shape2)
@@ -98,7 +96,11 @@ write.csv(
 
 
   
-  # ---- Align districts between data and shape ----
+  # ============================================================
+  # 4. VALIDATE AND ALIGN DISTRICTS
+  # ============================================================
+
+  # Check that every district in the data has a matching polygon.
   missing_in_shape <- setdiff(merged_data$district_country.x, shape2$district_country.x)
   if (length(missing_in_shape) > 0) {
     stop("These districts are in merged_data but not in shapefile: ",
@@ -121,7 +123,11 @@ write.csv(
   
   merged_data$area <- match(merged_data$district_country.x, shape2$district_country.x)
   
-  # ---- Class weights ----
+  # ============================================================
+  # 5. CALCULATE OUTCOME WEIGHTS
+  # ============================================================
+
+  # Calculate class weights to account for outbreak imbalance.
   tab <- as.data.frame(table(merged_data$outbreak_2))
   outbreak <- as.numeric(tab[tab$Var1 == 1, "Freq"])
   no_outbreak <- as.numeric(tab[tab$Var1 == 0, "Freq"])
@@ -131,7 +137,11 @@ write.csv(
   outbreak_weight <- 1 - non_outbreak_weight
   weights <- ifelse(merged_data$outbreak_2 == 1, outbreak_weight, non_outbreak_weight)
   
-  # ---- Covariates / scaling ----
+  # ============================================================
+  # 6. SCALE COVARIATES AND CREATE TEMPERATURE BINS
+  # ============================================================
+
+  # Standardise the environmental predictors used in the model.
   merged_data$eastward_wind <- as.numeric(merged_data$eastward_wind)
   
   merged_data$eastward_wind_scale <- as.numeric(scale(merged_data$eastward_wind))
@@ -148,6 +158,7 @@ write.csv(
   
   merged_data$wind_dir <- ifelse(merged_data$eastward_wind < 0, 1, 0)
   
+  # Create temperature intervals on the original Kelvin scale.
   temp_k <- merged_data$temp
   
   # Use ONE consistent binning scheme on the ORIGINAL scale
@@ -161,7 +172,11 @@ write.csv(
     right = TRUE
   )
   
-  # Refit model using temp_bin instead of temp_index
+  # ============================================================
+  # 7. FIT MODEL WITH A NONLINEAR TEMPERATURE EFFECT
+  # ============================================================
+
+  # Fit the model using the original-scale temperature bins.
   formula1 <- outbreak_2 ~ aod_scale +
     wind_strength_scale +
     humidity_scale +
@@ -188,41 +203,38 @@ write.csv(
   )
  
   
-  # ----------------------------------
-  # Extract INLA random effect
-  # ----------------------------------
+  # ============================================================
+  # 8. EXTRACT THE TEMPERATURE RANDOM EFFECT
+  # ============================================================
+
+  # Extract posterior summaries for the nonlinear temperature effect.
   temp_eff <- as.data.frame(model$summary.random$temp_bin)
   
-  # Factor levels actually used in model
+  # Recover the temperature interval levels used by INLA.
   bin_levels <- levels(merged_data$temp_bin)
   
-  # Check dimensions
+  # Check that interval levels and posterior rows are compatible.
   cat("Number of temp bins:", length(bin_levels), "\n")
   cat("Rows in random effect:", nrow(temp_eff), "\n")
   
-  # ----------------------------------
-  # Parse interval labels safely
-  # ----------------------------------
+  # Convert interval labels into numeric midpoints.
   get_midpoint <- function(interval_label) {
     
-    # remove brackets/parentheses
+    # Remove brackets and parentheses from the interval label.
     clean <- gsub("\\[|\\]|\\(|\\)", "", interval_label)
     
-    # split lower and upper bound
+    # Split the lower and upper interval bounds.
     bounds <- strsplit(clean, ",")[[1]]
     
     mean(as.numeric(bounds))
   }
   
-  # Convert all bin labels → midpoint in Kelvin
+  # Convert all bin labels to Kelvin midpoints.
   bin_mid_k <- sapply(bin_levels, get_midpoint)
   
-  # ----------------------------------
-  # Match random effect rows directly
-  # (NO regex extraction of IDs)
-  # ----------------------------------
+  # Match posterior rows to temperature midpoints and convert to Celsius.
   
-  # Keep only available bins
+  # Keep only bins with corresponding posterior rows.
   n_keep <- min(nrow(temp_eff), length(bin_mid_k))
   
   temp_eff <- temp_eff %>%
@@ -238,9 +250,9 @@ write.csv(
     ) %>%
     arrange(temp_c)
   
-  # ----------------------------------
-  # Diagnostics
-  # ----------------------------------
+  # ============================================================
+  # 9. CHECK THE EXTRACTED TEMPERATURE EFFECT
+  # ============================================================
   cat(
     "\nTemperature range plotted:",
     round(min(temp_eff$temp_c), 1),
@@ -256,9 +268,11 @@ write.csv(
     )
   )
   
-  # ----------------------------------
-  # Plot
-  # ----------------------------------
+  # ============================================================
+  # 10. PLOT AND EXPORT THE NONLINEAR TEMPERATURE EFFECT
+  # ============================================================
+
+  # Plot the posterior mean effect with its 95% credible interval.
   p_temp <- ggplot(
     temp_eff,
     aes(x = temp_c, y = mean)
@@ -298,7 +312,7 @@ write.csv(
     bg = "white"
   )
 
-  # Export the data underlying the temperature-effect plot
+  # Export the data underlying the temperature-effect plot.
   temperature_effect_data <- temp_eff %>%
     transmute(
       temperature_c = temp_c,

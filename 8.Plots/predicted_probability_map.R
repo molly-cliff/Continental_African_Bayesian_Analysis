@@ -1,26 +1,26 @@
-# Create output folder (if it doesn't exist yet)
+# ============================================================
+# REQUIRED PACKAGES
+# ============================================================
 library(dplyr)
 library(INLA)
 library(sf)
 library(spdep)
 library(sp)
-library(caret)
-library(pROC)
-library(PRROC)
-library(tidyr)
-library(broom)
-library(Hmisc)
 library(magick)
-library(corrplot)
-library(car)
 library(ggplot2)
-library(reshape2)
-library(cowplot)
-testing_map<- function() {
+
+# ============================================================
+# MONTHLY OUTBREAK-PROBABILITY MAPPING FUNCTION
+# ============================================================
+testing_map <- function() {
+
+  # ============================================================
+  # 1. LOAD AND FILTER OUTBREAK DATA
+  # ============================================================
 spatiotemporaloutbreaks <- read.csv("final_popdensity_vaccine.csv")
 print(names(spatiotemporaloutbreaks))
 
-
+# Create a continuous month index for temporal modeling.
 spatiotemporaloutbreaks$year_month <- (spatiotemporaloutbreaks$year.x - min(spatiotemporaloutbreaks$year.x)) * 12 + spatiotemporaloutbreaks$month
 
 myvars <- c("year.x", "month", "outbreak_2", "name_2", "district_country.x", "country",
@@ -28,14 +28,15 @@ myvars <- c("year.x", "month", "outbreak_2", "name_2", "district_country.x", "co
             ,"windspeed", "temp","cropland",          
             "forest", "barren","year_month", "pop_density" )
 merged_data <- spatiotemporaloutbreaks[, myvars]
+# Restrict observations to the study countries.
 merged_data <- merged_data[merged_data$country %in% c("Benin", "Burkina Faso", "Burundi", "Cameroon", "Central African Republic",
                                                       "Chad", "Côte d'Ivoire", "Eritrea", "Ethiopia", 
                                                       "Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Kenya", "Mali", "Mauritania",
                                                       "Niger", "Nigeria", "Rwanda", "Senegal", "South Sudan", "Sudan", "Tanzania",
                                                       "Togo", "Uganda"), ]
-
-
-
+# ============================================================
+# 2. PREPARE SPATIAL DATA AND ADJACENCY STRUCTURE
+# ============================================================
 shape2 <- st_read("Shapefile_improved.shp")
 
 shape2<- shape2[shape2$COUNTRY %in% c("Benin", "Burkina Faso", "Burundi", "Cameroon", "Central African Republic",
@@ -44,16 +45,16 @@ shape2<- shape2[shape2$COUNTRY %in% c("Benin", "Burkina Faso", "Burundi", "Camer
                                       "Niger", "Nigeria", "Rwanda", "Senegal", "South Sudan", "Sudan", "Tanzania",
                                       "Togo", "Uganda"), ]
 
-# 2. Check and fix invalid geometries
+# Repair invalid geometries before spatial processing.
 shape2 <- st_make_valid(shape2)  # Optionally fix geometries
 
 # Optional: Remove invalid ones instead
 # shape2 <- shape2[st_is_valid(shape2), ]
 
-# 3. Convert to Spatial* object
+# Convert the sf object for neighbourhood construction.
 shapefile_spatial <- as(shape2, "Spatial")
 
-# 4. Create neighborhood structure
+# Create queen-contiguity neighbours and the INLA graph.
 nb <- poly2nb(shapefile_spatial, queen = TRUE)
 
 nb2INLA("full_africa_map.adj", nb)
@@ -63,13 +64,16 @@ shape2$district_country.x <- paste(shape2$NAME_2, shape2$COUNTRY, sep = " ")
 
 merged_data$area<-as.numeric(as.factor(merged_data$district_country.x))
 
+# ============================================================
+# 3. VALIDATE AND ALIGN DISTRICTS
+# ============================================================
 missing_in_shape <- setdiff(merged_data$district_country.x, shape2$district_country.x)
 if (length(missing_in_shape) > 0) {
   stop("istricts are in merged_data but not in shapefile: ",
        paste(missing_in_shape, collapse = ", "))
 }
 
-# --- 2. In shape but not in data ---
+# Remove shapefile districts that are absent from the data.
 missing_in_data <- setdiff(shape2$district_country.x, merged_data$district_country.x)
 
 if (length(missing_in_data) > 0) {
@@ -82,7 +86,7 @@ if (length(missing_in_data) > 0) {
 }
 
 
-# --- 3. Check sorted lists match ---
+# Confirm that district-country identifiers match.
 if (!identical(sort(unique(merged_data$district_country.x)),
                sort(unique(shape2$district_country.x)))) {
   stop("istrict-country lists differ even after sorting!")
@@ -90,16 +94,15 @@ if (!identical(sort(unique(merged_data$district_country.x)),
   message("all district-country matches verified.")
 }
 
-# Ensure consistent ordering
+# Sort both sources consistently before assigning area IDs.
 shape2 <- shape2[order(shape2$district_country.x), ]
 merged_data <- merged_data[order(merged_data$district_country.x), ]
 
-# Assign IDs
+# Assign the spatial area index used by the BYM2 model.
 merged_data$area <- match(merged_data$district_country.x, shape2$district_country.x)
-
-
-shape2 <- shape2[order(shape2$district_country.x), ]
-merged_data <- merged_data[order(merged_data$district_country.x), ]
+# ============================================================
+# 4. CALCULATE OUTCOME WEIGHTS
+# ============================================================
 merged_data$area <- match(merged_data$district_country.x, shape2$district_country.x)
 
 
@@ -125,7 +128,10 @@ print("OUTBREAK WEIGHTS:")
 print(outbreak_weight)
 
 weights <- ifelse(merged_data$outbreak_2 == 1, outbreak_weight, non_outbreak_weight) 
-# ---- Covariates / scaling ----
+
+# ============================================================
+# 5. SCALE COVARIATES AND DERIVE WIND VARIABLES
+# ============================================================
   merged_data$eastward_wind <- as.numeric(merged_data$eastward_wind)
   
   merged_data$eastward_wind_scale <- as.numeric(scale(merged_data$eastward_wind))
@@ -146,7 +152,12 @@ weights <- ifelse(merged_data$outbreak_2 == 1, outbreak_weight, non_outbreak_wei
   
   merged_data$transport_index <- merged_data$aod_scale * pmax(0, -merged_data$eastward_wind_scale)
   
-  # ---- Model ----
+# ============================================================
+# 6. FIT THE SPATIOTEMPORAL INLA MODEL
+# ============================================================
+
+  # Include fixed effects, temporal RW2, nonlinear temperature,
+  # and spatial BYM2 effects.
   formula1 <- outbreak_2 ~ aod_scale +
     wind_strength_scale +
     humidity_scale +
@@ -172,8 +183,12 @@ weights <- ifelse(merged_data$outbreak_2 == 1, outbreak_weight, non_outbreak_wei
     control.compute = list(dic = TRUE, waic = TRUE, cpo = TRUE, config = TRUE)
   )
   
+  # Fit the weighted binomial model.
   print(summary(model))
-# ---- 2. Model Summary ----
+
+# ============================================================
+# 7. REPORT MODEL FIT
+# ============================================================
 cat("\n==============================\n")
 cat("Full Model Summary\n")
 cat("==============================\n")
@@ -185,21 +200,25 @@ cat("Mean Log CPO:", log_cpo, "\n")
 
 merged_data$M5 <- model$summary.fitted.values[, 1]
 
-# Create year_month identifier
+# ============================================================
+# 8. JOIN PREDICTIONS TO DISTRICT GEOMETRIES
+# ============================================================
+
+# Create a year-month identifier for grouping map layers.
 merged_data$year_month <- paste(
   merged_data$year.x,
   sprintf("%02d", as.integer(merged_data$month)),
   sep = "_"
 )
 
-# Merge with shapefile
+# Attach fitted probabilities to the district polygons.
 merged_sf <- shape2 %>%
   left_join(merged_data, by = "district_country.x")
 
-# Split by year_month
+# Split the spatial data into one object per month.
 split_sf <- split(merged_sf, merged_sf$year_month)
 
-# Create list of sf objects (optionally assign globally)
+# Convert each monthly subset into an sf object.
 shapefiles_list <- lapply(names(split_sf), function(ym) {
   df <- split_sf[[ym]]
   df_sf <- st_as_sf(df)  # Ensure sf class
@@ -208,34 +227,37 @@ shapefiles_list <- lapply(names(split_sf), function(ym) {
 })
 names(shapefiles_list) <- names(split_sf)
 
-# Output directory
+# ============================================================
+# 9. CREATE AND SAVE MONTHLY PROBABILITY MAPS
+# ============================================================
+
+# Create the directory for monthly map images.
 outdir <- "monthly_predictions_plots"
 if (!dir.exists(outdir)) dir.create(outdir)
-# Loop over year_month shapefiles
+# Build and save one probability map for each month.
 for (year_month in names(shapefiles_list)) {
   current_shapefile <- shapefiles_list[[year_month]]
   current_shapefile$M5 <- as.numeric(current_shapefile$M5)
   
-  # Convert year_month index to actual year and month
-  # Assuming year_month starts from 1 and increments by 1 for each month
+  # Convert the month index to a calendar year and month.
   year_month_index <- as.numeric(year_month)
   
-  # Manually set starting point
+  # Define the first month represented by the index.
   start_year <- 2003
   start_month <- 1
   
-  # Calculate offset from start
+  # Calculate the number of months since the starting point.
   total_months_offset <- year_month_index - 1
   actual_year <- start_year + floor(total_months_offset / 12)
   actual_month <- ((total_months_offset) %% 12) + start_month
   
-  # Handle month overflow
+  # Handle month values beyond December.
   if (actual_month > 12) {
     actual_year <- actual_year + 1
     actual_month <- actual_month - 12
   }
   
-  # Format as "YYYY MM"
+  # Format the date for plot titles and filenames.
   date_label <- sprintf("%04d %02d", actual_year, actual_month)
   
   plot <- ggplot(data = current_shapefile) +
@@ -253,7 +275,7 @@ for (year_month in names(shapefiles_list)) {
       plot.title = element_text(hjust = 0.5)
     )
   
-  # Save PNG with date label
+  # Save the monthly probability map as a PNG.
   ggsave(
     filename = file.path(outdir, paste0("outbreak_prob_", date_label, ".png")),
     plot = plot,
@@ -261,14 +283,18 @@ for (year_month in names(shapefiles_list)) {
   )
 }
 
-# Create GIF from PNGs
+# ============================================================
+# 10. COMBINE MONTHLY MAPS INTO ANIMATION
+# ============================================================
+
+# Collect the monthly PNG files in chronological order.
 png_files <- list.files(outdir, pattern = "outbreak_prob_.*\\.png$", full.names = TRUE)
-# Sort files by date
 png_files <- sort(png_files)
+
+# Build, preview, and save the animated GIF.
 img_list <- image_read(png_files)
 animation <- image_animate(img_list, fps = 5)
 
-# Preview and save
 print(animation)
 image_write(animation, "animation_nodrc.gif")
 

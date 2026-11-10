@@ -56,25 +56,16 @@ Based on these comparisons, an RW2 temporal effect, with month treated as contin
 5. Multivariate analysis: Here we follow a stepwise analysis adding in climatic/socioeconomic variables linearly based on changes in WAIC and DIC, statistical significance as well as epidemiological relevance. The minimal dataset supporting this analysis provies the WAIC and DIC values for all variables at each step. Models are run in order a-d, with zonal wind, dust and humidity being added to the model in each sequential step.
 
 
+6. We first ran the rw2_exploration file to evaluate non-linear relationships using RW2 effects for the included explanatory variables, alongside an assessment of the interaction between dust and zonal wind. In File A, all explanatory variables were tested for potential non-linear RW2 effects, with temperature also supported as a non-linear effect in the minimal dataset. The same approach was repeated in File B; however, the inclusion of RW2 effects did not produce any noticeable improvement in model fit, with no appreciable reduction in WAIC or DIC.
 
+Following this, we ran the zonal_wind_dust interaction analysis to investigate the relationship between dust and zonal wind. This involved examining the interaction in relation to zonal wind strength and direction, with alternative model specifications compared using WAIC and DIC to assess whether including the interaction improved model fit.
 
+7. Cross-validation: Here we conducted stratified five-fold cross-validation of the final model, with predictive performance evaluated using the Brier score, log loss, and area under the receiver operating characteristic curve (ROC AUC) (Figure 5).  Before splitting the data, consecutive outbreak months within each district are grouped into outbreak episodes. All months belonging to the same episode are assigned to the same fold, preventing a single outbreak episode. For each fold outcomes in the test folds are maskeed and INLA model is fitted using the remaining observations, Predictions are generated for the held-out observations and evaluated using brier score, log loss, roc cruve, precision and recall. ROC curves from all five folds are combined into a single plot, and the fold-level metrics are combined into an overall cross-validation results file. 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-6. Non-linearity and interactions: Evaluation of non-linear relationships using RW2 effects for included explanatory variables, as well as assessment of the interaction between dust and zonal wind. These are run in order with the multivariate step_1 file preceding the step 2 file.
-7. Cross-validation: Stratified five-fold cross-validation of the final model, with predictive performance evaluated using the Brier score, log loss, and area under the receiver operating characteristic curve (ROC AUC) (Figure 5). Folds were stratified by [outcome / district / time].
 8. Plots: Final model and plots for random effects (temperature, space, and time), as well as the interaction effect between dust and wind (Figures 2-4 and Supplementary). A GIF of monthly predicted probability across Africa is also included here (Supplementary Information) [or: hosted in the supplementary repository, DOI].
+
+
+
 9. Sensitivity analysis: Prior sensitivity analyses assessing the robustness of model estimates to alternative prior specifications, including their effects on fixed-effect estimates, WAIC, and DIC. This includes the fixed effect plot and WAIC/DIC table for different prior setups (Supplementary Information).
 
 # LICENSE 
