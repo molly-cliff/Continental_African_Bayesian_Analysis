@@ -3,20 +3,7 @@ library(INLA)
 library(sf)
 library(spdep)
 library(sp)
-library(caret)
-library(pROC)
-library(Hmisc)
-library(tidyr)
-library(PRROC)
-library(broom)
-library(corrplot)
-library(car)
-library(ggplot2)
-library(gridExtra)
-library(reshape2)
 
-non_linear_dust_wind_iter <-function() {
-    
     # ============================================================
     # 1. LOAD AND PREPARE SPATIOTEMPORAL DATA
     # ============================================================
@@ -216,51 +203,30 @@ non_linear_dust_wind_iter <-function() {
     
     merged_data$aod_index <-
       as.numeric(cut(merged_data$aod_scale, breaks = 50))
+  
+  
+    merged_data$eastward_wind_index <-
+      as.numeric(cut(merged_data$eastward_wind_scale, breaks = 50))
+  
+  
+    merged_data$humidity_index <-
+      as.numeric(cut(merged_data$humidity_scale, breaks = 50))
     
     
     # ============================================================
-    # 7. WIND VARIABLES
+    # 7. FIT MODEL 1: NONLINEAR TEMPERATURE AND EASTWARD WIND EFFECTS
     # ============================================================
-    
-    # Wind strength = absolute eastward wind magnitude
-    merged_data$wind_strength <-
-      abs(merged_data$eastward_wind)
-    
-    merged_data$wind_strength_scale <-
-      as.numeric(scale(merged_data$wind_strength))
-    
-    # Wind direction indicator
-    # 1 = east -> west
-    merged_data$wind_dir <-
-      ifelse(merged_data$eastward_wind < 0, 1, 0)
-    
-
     formula1 <- outbreak_2 ~
       aod_scale +
-      wind_strength_scale +
       humidity_scale +
-      wind_dir +
-      aod_scale:wind_dir +
-      f(year_month, model = "rw2") +
       f(temp_index, model = "rw2") +
+      f(eastward_wind_index, model = "rw2") +
+     f(year_month, model = "rw2") +
       f(
         area,
         model = "bym2",
-        graph = ken.adj,
-        scale.model = TRUE,
-        constr = TRUE,
-        hyper = list(
-          prec = list(
-            prior = "pc.prec",
-            param = c(1, 0.01)
-          ),
-          phi = list(
-            prior = "pc",
-            param = c(0.5, 2/3)
-          )
+        graph = ken.adj
         )
-      )
-    
     model1 <- inla(
       formula1,
       data = merged_data,
@@ -283,30 +249,20 @@ non_linear_dust_wind_iter <-function() {
     print(summary(model1))
     
  
+    # ============================================================
+    # 8. FIT MODEL 2: NONLINEAR TEMPERATURE AND HUMIDITY EFFECTS
+    # ============================================================
     formula2 <- outbreak_2 ~
       aod_scale +
-      humidity_scale +
-      wind_dir +
-      aod_scale:wind_dir +
-      f(year_month, model = "rw2") +
+     eastward_wind_scale+
       f(temp_index, model = "rw2") +
+      f(humidity_index, model = "rw2") +
+     f(year_month, model = "rw2") +
       f(
         area,
         model = "bym2",
-        graph = ken.adj,
-        scale.model = TRUE,
-        constr = TRUE,
-        hyper = list(
-          prec = list(
-            prior = "pc.prec",
-            param = c(1, 0.01)
-          ),
-          phi = list(
-            prior = "pc",
-            param = c(0.5, 2/3)
-          )
+        graph = ken.adj
         )
-      )
     
     model2 <- inla(
       formula2,
@@ -330,29 +286,71 @@ non_linear_dust_wind_iter <-function() {
     
     print(summary(model2))
     
-    
     # ============================================================
-    # MODEL COMPARISON
+    # 9. FIT MODEL 3: NONLINEAR TEMPERATURE AND AOD EFFECTS
+    # ============================================================
+     formula3 <- outbreak_2 ~
+      humidity_scale +
+     eastward_wind_scale +
+      f(temp_index, model = "rw2") +
+      f(aod_index, model = "rw2") +
+     f(year_month, model = "rw2") +
+      f(
+        area,
+        model = "bym2",
+        graph = ken.adj
+        )
+    
+    model3 <- inla(
+      formula3,
+      data = merged_data,
+      family = "binomial",
+      weights = weights,
+      control.fixed = list(mean = 0, prec = 1),
+      control.predictor = list(
+        compute = TRUE,
+        link = 1
+      ),
+      control.compute = list(
+        dic = TRUE,
+        waic = TRUE,
+        cpo = TRUE,
+        config = TRUE
+      )
+    )
+    
+
+    
+    print(summary(model3))
+  
+
+  
+    # ============================================================
+    # 10. COMPARE MODEL FIT
     # ============================================================
     
 
     
     comparison <- data.frame(
       Model = c(
-        "Model 1: AOD + wind strength",
-        "Model 2: AOD without wind strength"
+        "Model 1: rw2_temp + rw2_eastward_wind",
+        "Model 2: rw2_temp +rw2_humidity",
+        "Model 3: rw2_temp +rw2_aod"
       ),
       DIC = c(
         model1$dic$dic,
-        model2$dic$dic
+        model2$dic$dic, 
+        model3$dic$dic
       ),
       WAIC = c(
         model1$waic$waic,
-        model2$waic$waic
+        model2$waic$waic,
+        model3$waic$waic
       ),
       CPO = c(
         -mean(log(model1$cpo$cpo), na.rm = TRUE),
-        -mean(log(model2$cpo$cpo), na.rm = TRUE)
+        -mean(log(model2$cpo$cpo), na.rm = TRUE),
+        -mean(log(model3$cpo$cpo), na.rm = TRUE)
       )
     )
     
@@ -374,7 +372,5 @@ non_linear_dust_wind_iter <-function() {
     cat("Best model by CPO: ", best_cpo, "\n")
     
 
-  
-  
-}
+  write.csv(comparison, "rw2_test_results_step2.csv", row.names = FALSE)
   

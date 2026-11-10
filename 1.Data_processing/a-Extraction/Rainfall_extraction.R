@@ -1,11 +1,10 @@
-library(raster)
+
+library(lubridate)
 library(terra)
 library(dplyr)
 library(stringr)
 library(sf)
 
-testing_extract_data <- function() {
-  # Load input data
   weekly_data <- read.csv("full-outbreak-matched.csv")
   shape2 <- st_read("Shapefile_improved.shp")
   
@@ -36,7 +35,7 @@ testing_extract_data <- function() {
   # Loop through rainfall files
   for (f in files) {
     cat("Processing file:", f, "\n")
-    r <- raster(f)
+    r <- rast(f)
     file_name <- basename(f)
     year <- str_extract(file_name, "\\d{4}")
     month <- str_extract(file_name, "(?<=\\d{4}\\.)\\d{2}")
@@ -73,4 +72,4 @@ testing_extract_data <- function() {
   
   # Write output to CSV
   write.csv(final_data, "final_rainfall_data.csv", row.names = FALSE)
-}
+

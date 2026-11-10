@@ -1,26 +1,10 @@
-# Load required libraries
-library(dplyr)
 library(INLA)
 library(sf)
 library(spdep)
 library(sp)
-library(caret)
-library(pROC)
-library(Hmisc)
-library(tidyr)
-library(PRROC)
-library(broom)
-library(corrplot)
-library(car)
-library(ggplot2)
 library(writexl)
-library(reshape2)
 
 
-
-monthly_models_test3 <- function() {
-  # Read data
-  
   spatiotemporaloutbreaks <- read.csv("final_popdensity_vaccine.csv")
   print(names(spatiotemporaloutbreaks))
   
@@ -198,17 +182,3 @@ monthly_models_test3 <- function() {
   print(results)
   write_xlsx(results, path = "model_comparison_spatial.xlsx")
   
-  # Print summaries (fixed and random (area) summaries)
-  print("BYM2 fixed effects:")
-  print(fit_bym2$summary.fixed)
-  print("BYM2 area random summary (first rows):")
-  print(head(fit_bym2$summary.random$area))
-  
-  print("BYM fixed effects:")
-  print(fit_bym$summary.fixed)
-  print("BESAG fixed effects:")
-  print(fit_besag$summary.fixed)
-  print("BESAGPROPER fixed effects:")
-  print(fit_besagproper$summary.fixed)
-  
-}

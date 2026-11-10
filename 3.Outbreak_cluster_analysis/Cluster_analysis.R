@@ -1,13 +1,8 @@
-burnett_func <- function() {
-  # =========================================================
-  # 0) LOAD LIBRARIES
-  # =========================================================
+
   library(dplyr)
-  library(openxlsx)
   library(sf)
   library(sp)
   library(spdep)
-  library(INLA)
   library(igraph)
   library(ggplot2)
   library(scales)
@@ -30,7 +25,9 @@ burnett_func <- function() {
   
   myvars <- c("year.x", "month", "outbreak_2", "name_2", "district_country.x", "country", "code.x", "year_month")
   merged_data <- spatiotemporaloutbreaks[, myvars]
-  
+
+
+  #here we are restricting to just meningitis belt/countries of interest
   countries_of_interest <- c(
     "Benin", "Burkina Faso", "Burundi", "Cameroon", "Central African Republic", "Chad",
     "Côte d'Ivoire", "Eritrea", "Ethiopia", "Gambia", "Ghana", "Guinea", "Guinea-Bissau",
@@ -48,7 +45,7 @@ burnett_func <- function() {
   shape2 <- st_make_valid(shape2)
   
   # =========================================================
-  # 3) OUTBREAKS OVER TIME (LINE PLOT)
+  # 3) OUTBREAKS OVER TIME-LINE PLOT
   # =========================================================
   merged_data <- merged_data %>%
     mutate(year_month_label = sprintf("%s %d", month.abb[month], year.x))
@@ -78,13 +75,6 @@ burnett_func <- function() {
   plot(p_outbreaks)
   ggsave("outbreaks_over_time.png", p_outbreaks, width = 12, height = 6, dpi = 300)
   
-  merged_data$outbreak<-merged_data$outbreak_2
-  merged_data_subset <- merged_data %>%
-    select(year.x, month, year_month_label, outbreak)
-  
-  write.csv(merged_data_subset, "outbreaks_over_time_fig1a.csv", row.names = FALSE)
-
-
   # =========================================================
   # 4) BUILD SPATIAL ADJACENCY MATRIX
   # =========================================================
@@ -98,11 +88,13 @@ burnett_func <- function() {
   nb <- poly2nb(shapefile_spatial, queen = TRUE)
 
   # Convert the neighbour list into a binary district-by-district matrix.
+  # nb2matgenerates a weights matrix for neighbours, with style b representing the binary coding.
   W_matrix <- as.matrix(nb2mat(nb, style = "B", zero.policy = TRUE))
   rownames(W_matrix) <- shape2$district_country.x
   colnames(W_matrix) <- shape2$district_country.x
   
-  # Stop if any district in the outbreak data is absent from the shapefile.
+  #  safety checks here we stop if any district in the outbreak data is absent from the shapefile, and we drop shapefile districts that have no corresponding outbreak data.
+  # these same checks are used all throughout the analysis
   missing_in_shape <- setdiff(merged_data$district_country.x, shape2$district_country.x)
   if (length(missing_in_shape) > 0) {
     stop("districts are in merged_data but not in shapefile: ", paste(missing_in_shape, collapse = ", "))
@@ -112,7 +104,7 @@ burnett_func <- function() {
   missing_in_data <- setdiff(shape2$district_country.x, merged_data$district_country.x)
   if (length(missing_in_data) > 0) {
     message("Dropping ", length(missing_in_data), " districts from shapefile:\n",
-            paste(missing_in_data, collapse = ", "))  # <- typo fix from "ropping"
+            paste(missing_in_data, collapse = ", "))  
     shape2 <- shape2[shape2$district_country.x %in% merged_data$district_country.x, ]
     W_matrix <- W_matrix[shape2$district_country.x, shape2$district_country.x, drop = FALSE]
   }
@@ -126,6 +118,7 @@ burnett_func <- function() {
   }
   
   # Apply a shared district ordering and assign each district its area index.
+  # this means that the area code remains the same throughout the shapefile and the outbreak data, which is important for the clustering analysis
   shape2 <- shape2[order(shape2$district_country.x), ]
   merged_data <- merged_data[order(merged_data$district_country.x), ]
   merged_data$area <- match(merged_data$district_country.x, shape2$district_country.x)
@@ -134,12 +127,13 @@ burnett_func <- function() {
   # 5) IDENTIFY FIRST OUTBREAK EVENTS (GAP > 2 MONTHS)
   # =========================================================
   # Keep outbreak observations and order them within each district over time.
+
   first_outbreaks <- merged_data %>%
     filter(outbreak_2 == 1) %>%
     arrange(district_country.x, year_month) %>%
     group_by(district_country.x) %>%
 
-    # Compare each outbreak with the previous outbreak in the same district.
+    # Here we calculate the time gap between each outbreak and the previous outbreak in the same district.
     mutate(
       prev_year_month = lag(year_month),
       prev_year = lag(year.x),
@@ -153,10 +147,10 @@ burnett_func <- function() {
       )
     ) %>%
 
-    # Retain only the first outbreak in each outbreak episode.
+    # Remove any rows that are not the first outbreak in their respective episodes, essentially getting rid of concurrent months.
     filter(is_first == TRUE) %>%
 
-    # Remove temporary calculation columns from the final result.
+    # Remove the temporary calculation columns.
     select(-prev_year_month, -prev_year, -months_since_last, -is_first) %>%
     ungroup()
   
@@ -172,12 +166,12 @@ burnett_func <- function() {
     cluster_id <- 1
     processed_rows <- integer(0)
     
-    # Add stable row identifiers so clustered observations are not reused.
+    # Add stable row identifiers so clustered outbreaks marked as one event
     outbreaks_df <- outbreaks_df %>%
       arrange(year_month) %>%
       mutate(row_id = row_number())
     
-    # Use each unprocessed outbreak as the starting point for a cluster search.
+    # Iterate through each outbreak and check if it belongs to a cluster.
     for (i in 1:nrow(outbreaks_df)) {
       if (i %in% processed_rows) next
       
@@ -274,8 +268,7 @@ burnett_func <- function() {
       axis.ticks = element_blank()
     )
   
-  ggsave("01_outbreak_intensity_overview_nodrc.pdf", p_map, width = 13, height = 9, dpi = 300)
+  ggsave("outbreak_intensity_overview_nodrc.pdf", p_map, width = 13, height = 9, dpi = 300)
 
-
-}
+  
 

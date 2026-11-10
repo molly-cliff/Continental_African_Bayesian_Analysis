@@ -1,12 +1,9 @@
 
-library(raster)
+library(lubridate)
 library(terra)
 library(dplyr)
 library(stringr)
 library(sf)
-library(lubridate)  # For ymd, year, month
-
-testing_extract_hum <- function() {
   # Load input data
   weekly_data <- read.csv("full-outbreak-matched.csv")
   shape2 <- st_read("Shapefile_improved.shp")
@@ -103,4 +100,3 @@ print(na_humidity)
 
 # Write output
 write.csv(final_data, "final_humidity_data.csv", row.names = FALSE)
-}

@@ -1,22 +1,11 @@
-library(dplyr)
 library(INLA)
 library(sf)
 library(spdep)
 library(sp)
-library(caret)
-library(pROC)
-library(tidyr)
-library(PRROC)
-library(broom)
-library(corrplot)
-library(car)
-library(ggplot2)
-library(reshape2)
-library(Hmisc)
 library(writexl)
 
-multivariate_step1<-function() {
-  # Left join all environmental datasets onto spatiotemporaloutbreaks
+
+  # Load and filter outbreak and environmental data
   
   spatiotemporaloutbreaks <- read.csv("final_popdensity_vaccine.csv")
   print(names(spatiotemporaloutbreaks))
@@ -47,16 +36,15 @@ multivariate_step1<-function() {
                                                         "Niger", "Nigeria", "Rwanda", "Senegal", "South Sudan", "Sudan", "Tanzania",
                                                         "Togo", "Uganda"), ]
   
-  # 2. Check and fix invalid geometries
+  # Prepare and validate the spatial data
   shape2 <- st_make_valid(shape2)  # Optionally fix geometries
   
   # Optional: Remove invalid ones instead
   # shape2 <- shape2[st_is_valid(shape2), ]
   
-  # 3. Convert to Spatial* object
+  # Build the spatial neighborhood graph used by INLA
   shapefile_spatial <- as(shape2, "Spatial")
   
-  # 4. Create neighborhood structure
   nb <- poly2nb(shapefile_spatial, queen = TRUE)
   
   nb2INLA("map.adj", nb)
@@ -72,7 +60,7 @@ multivariate_step1<-function() {
          paste(missing_in_shape, collapse = ", "))
   }
   
-  # --- 2. In shape but not in data ---
+  # Remove spatial areas that are not present in the analysis data
   missing_in_data <- setdiff(shape2$district_country.x, merged_data$district_country.x)
   
   if (length(missing_in_data) > 0) {
@@ -85,7 +73,7 @@ multivariate_step1<-function() {
   }
   
   
-  # --- 3. Check sorted lists match ---
+  # Verify and align the area identifiers
   if (!identical(sort(unique(merged_data$district_country.x)),
                  sort(unique(shape2$district_country.x)))) {
     stop("dstrict-country lists differ even after sorting!")
@@ -105,10 +93,14 @@ multivariate_step1<-function() {
   merged_data <- merged_data[order(merged_data$district_country.x), ]
   merged_data$area <- match(merged_data$district_country.x, shape2$district_country.x)
 
-  # Inspect results
-  head(merged_data)
-
   
+  # Inspect the prepared data
+  head(merged_data)
+  
+  
+  
+  
+  # Calculate outcome frequencies and model weights
   test<-table(merged_data$outbreak_2)
   test<-as.data.frame(test)
   print("OUTBREAK OCCURANCE:")
@@ -131,6 +123,7 @@ multivariate_step1<-function() {
   
 
 
+  # Standardize continuous covariates
   merged_data$rainfall_scale<- scale(merged_data$rainfall)
   merged_data$windspeed_scale<- scale(merged_data$windspeed)
   merged_data$eastward_wind_scale<- scale(merged_data$eastward_wind)
@@ -143,19 +136,25 @@ multivariate_step1<-function() {
   merged_data$barren_scale<- scale(merged_data$barren)
   merged_data$temp_scale<- scale(merged_data$temp)
   
-  
-  vars_inla <- c(  "windspeed_scale","north_wind_scale", "humidity_scale","rainfall_scale",
-                 "vaccine", "pop_density_scale","eastward_wind_scale","aod_scale", "cropland",
+
+  # Define the covariates for the individual INLA models
+  vars_inla <- c(  "windspeed_scale","north_wind_scale", "humidity_scale",
+                 "vaccine", "pop_density_scale", "rainfall_scale",
+               "aod_scale", "cropland",
                  "barren", "forest"
   )
   
+  
 
+  
+  # Fit one spatial-temporal model for each covariate
   posterior_table_m2 <- data.frame()
   
   for (var in vars_inla) {
     formula <- as.formula(paste(
       "outbreak_2 ~", var, 
       "+ temp_scale",
+      "+ eastward_wind_scale",
       "+ f(year_month, model = 'rw2') ",
       "+ f(area, model = 'bym2', graph = ken.adj, scale.model = TRUE, constr = TRUE)"
     ))
@@ -190,17 +189,17 @@ multivariate_step1<-function() {
     cat("DIC:", M5$dic$dic, ", WAIC:", M5$waic$waic, "\n")
   }
   
-  # Final cleanup and export
+  # Finalize model results
   rownames(posterior_table_m2) <- 1:nrow(posterior_table_m2)
   print(posterior_table_m2)
   
   
-  # Compute the odds ratios (OR) by exponentiating the estimates and the CI bounds
+  # Convert model estimates and confidence intervals to odds ratios
   posterior_table_m2_or <- posterior_table_m2
   posterior_table_m2_or[, c("estimate", "CI_1", "CI_2")] <- exp(posterior_table_m2_or[, c("estimate", "CI_1", "CI_2")])
   print(posterior_table_m2_or)
   
-  write_xlsx(posterior_table_m2_or, path = "multivar_step1_analysis.xlsx")
+  write_xlsx(posterior_table_m2_or, path = "multivar_step2_analysis.xlsx")
   
-}
+
   

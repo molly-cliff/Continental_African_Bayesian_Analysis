@@ -7,17 +7,18 @@ non_linear_plots <- function() {
   library(sf)
   library(spdep)
   library(sp)
-  library(tidyr)
-  library(tibble)
   library(ggplot2)
-  library(stringr)
   library(lubridate)
   
-  # ---- Output folder ----
+  # ============================================================
+  # 1. SET UP OUTPUTS AND TIME-PARSING HELPERS
+  # ============================================================
+
+  # Create the directory used for generated plots.
   out_dir <- "results"
   if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
-  
+  # Convert supported year-month identifiers into Date objects.
   parse_time_id <- function(id) {
     id_chr <- as.character(id)
     
@@ -36,7 +37,11 @@ non_linear_plots <- function() {
     as.Date(NA)
   }
   
-  # ---- Load data ----
+  # ============================================================
+  # 2. LOAD AND FILTER OUTBREAK DATA
+  # ============================================================
+
+  # Load the joined outbreak and environmental dataset.
   spatiotemporaloutbreaks <- read.csv("final_popdensity_vaccine.csv")
   spatiotemporaloutbreaks$year_month <-
     (spatiotemporaloutbreaks$year.x - min(spatiotemporaloutbreaks$year.x, na.rm = TRUE)) * 12 +
@@ -59,7 +64,11 @@ non_linear_plots <- function() {
   )
   merged_data <- merged_data[merged_data$country %in% keep_countries, ]
   
-  # ---- Read shapefile & build adjacency ----
+  # ============================================================
+  # 3. PREPARE SPATIAL DATA AND ADJACENCY STRUCTURE
+  # ============================================================
+
+  # Read the district shapefile and retain the study countries.
   shape2 <- st_read("Shapefile_improved.shp", quiet = TRUE)
   shape2 <- shape2[shape2$COUNTRY %in% keep_countries, ]
   shape2 <- st_make_valid(shape2)
@@ -73,7 +82,11 @@ non_linear_plots <- function() {
   
   shape2$district_country.x <- paste(shape2$NAME_2, shape2$COUNTRY, sep = " ")
   
-  # ---- Align districts between data and shape ----
+  # ============================================================
+  # 4. VALIDATE AND ALIGN DISTRICTS
+  # ============================================================
+
+  # Check that every district in the data has a matching polygon.
   missing_in_shape <- setdiff(merged_data$district_country.x, shape2$district_country.x)
   if (length(missing_in_shape) > 0) {
     stop("These districts are in merged_data but not in shapefile: ",
@@ -96,7 +109,11 @@ non_linear_plots <- function() {
   
   merged_data$area <- match(merged_data$district_country.x, shape2$district_country.x)
   
-  # ---- Class weights ----
+  # ============================================================
+  # 5. CALCULATE OUTCOME WEIGHTS
+  # ============================================================
+
+  # Calculate class weights to account for outbreak imbalance.
   tab <- as.data.frame(table(merged_data$outbreak_2))
   outbreak <- as.numeric(tab[tab$Var1 == 1, "Freq"])
   no_outbreak <- as.numeric(tab[tab$Var1 == 0, "Freq"])
@@ -106,25 +123,28 @@ non_linear_plots <- function() {
   outbreak_weight <- 1 - non_outbreak_weight
   weights <- ifelse(merged_data$outbreak_2 == 1, outbreak_weight, non_outbreak_weight)
   
-  # ---- Covariates / scaling ----
-  merged_data$eastward_wind <- as.numeric(merged_data$eastward_wind)
-  
-  merged_data$eastward_wind_scale <- as.numeric(scale(merged_data$eastward_wind))
+  # ============================================================
+  # 6. SCALE COVARIATES AND DERIVE MODEL PREDICTORS
+  # ============================================================
+
+  # Standardise environmental predictors and derive wind variables.
+
+  merged_data$eastward_wind_scale <- (scale(merged_data$eastward_wind))
   merged_data$aod_scale <- scale(merged_data$aod)
   merged_data$humidity_scale <- scale(merged_data$humidity)
   merged_data$temp_scale <- scale(merged_data$temp)
-  merged_data$windspeed_scale <- scale(merged_data$windspeed)
-  
   merged_data$temp_index <- as.numeric(cut(merged_data$temp_scale, breaks = 50))
-  merged_data$aod_index <- as.numeric(cut(merged_data$aod_scale, breaks = 50))
+
   
   merged_data$wind_strength <- abs(merged_data$eastward_wind)
-  merged_data$wind_strength_scale <- as.numeric(scale(merged_data$wind_strength))
-  
   merged_data$wind_dir <- ifelse(merged_data$eastward_wind < 0, 1, 0)
   
+  # ============================================================
+  # 7. FIT SPATIOTEMPORAL INLA MODEL
+  # ============================================================
 
-  # ---- Model ----
+  # Specify fixed effects, temporal RW2 effect, nonlinear temperature
+  # effect, and spatial BYM2 effect.
   formula1 <- outbreak_2 ~ aod_scale +
     wind_strength_scale +
     humidity_scale +
@@ -140,6 +160,7 @@ non_linear_plots <- function() {
         phi  = list(prior = "pc", param = c(0.5, 2/3))
       ))
   
+  # Fit the weighted binomial model.
   model <- inla(
     formula1,
     data = merged_data,
@@ -155,11 +176,11 @@ non_linear_plots <- function() {
  
   
 
-    # -----------------------------
-  # Temporal random effect: year_month (robust mapping to real dates)
-  # -----------------------------
+  # ============================================================
+  # 8. EXTRACT AND PLOT THE TEMPORAL RANDOM EFFECT
+  # ============================================================
   
-  # Build lookup: year_month index -> first day of month
+  # Map each year-month index to the first day of its calendar month.
   ym_lookup <- merged_data %>%
     dplyr::distinct(year_month, year.x, month) %>%
     dplyr::mutate(
@@ -173,7 +194,7 @@ non_linear_plots <- function() {
     
     time_eff <- as.data.frame(model$summary.random$year_month)
     
-    # INLA rw2 IDs are typically numeric indices
+    # Convert INLA random-effect IDs into the year-month index.
     time_eff$year_month <- suppressWarnings(as.integer(as.character(time_eff$ID)))
     
     time_eff <- time_eff %>%
@@ -187,14 +208,12 @@ non_linear_plots <- function() {
       ) %>%
       dplyr::arrange(time_date)
     
-    # Keep a clean table if you want to inspect/export later
+    # Keep a clean table for inspection or later export.
     year_eff <- time_eff %>%
       dplyr::select(year_month, time_date, mean, lower, upper, sd, kld)
     
-    # Safety checks
-    if (all(is.na(time_eff$time_date))) {
-      warning("All temporal dates are NA after mapping. Check year_month construction and INLA IDs.")
-    } else {
+    # Plot the temporal effect if the date mapping succeeded.
+   
       p_time <- ggplot(time_eff, aes(x = time_date, y = mean, group = 1)) +
         geom_line(linewidth = 1) +
         geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.25) +
@@ -210,23 +229,20 @@ non_linear_plots <- function() {
         plot = p_time,
         width = 10, height = 5, units = "in", dpi = 300, bg = "white"
       )
-    }
+   
   
-  
- 
 
-  # ------------------------------------------------------------
-  # AOD × wind_dir interaction plot (approx 95% band; no cov.fixed)
-  # ------------------------------------------------------------
+  # ============================================================
+  # 9. PLOT THE AOD AND WIND-DIRECTION INTERACTION
+  # ============================================================
+
+  # Construct an approximate 95% credible band from fixed-effect
+  # posterior summaries, without conditioning on other covariates.
   plot_aod_winddir_interaction_no_covfixed <- function(model, aod_range = c(-2.5, 2.5), n = 200) {
     
     fe <- model$summary.fixed
-    need <- c("(Intercept)", "aod_scale", "wind_dir", "aod_scale:wind_dir")
-    if (!all(need %in% rownames(fe))) {
-      stop("Missing required fixed effects: ", paste(setdiff(need, rownames(fe)), collapse = ", "))
-    }
     
-    # Convenience extractor for mean + 95% CrI endpoints
+    # Extract posterior means and 95% credible interval endpoints.
     get3 <- function(term) {
       c(
         mean = fe[term, "mean"],
@@ -243,7 +259,7 @@ non_linear_plots <- function() {
     aod_seq <- seq(aod_range[1], aod_range[2], length.out = n)
     
     make_df <- function(wd) {
-      # lp = (b0 + wd*bw) + (ba + wd*bi) * aod
+      # Calculate the linear predictor for one wind-direction category.
       int  <- b0 + wd * bw
       slope <- ba + wd * bi
       
@@ -275,52 +291,48 @@ non_linear_plots <- function() {
   ggsave("aod_by_winddir_logodds.png", p_int, width = 8, height = 5)
   }
 
+    # ============================================================
+    # 10. PREPARE AND PLOT THE SPATIAL BYM2 RANDOM EFFECT
+    # ============================================================
 
-    plot_spatial_bym2 <- function(model, shape2_sf, district_key = "district_country.x") {
-      
-      if (is.null(model$summary.random$area)) {
-        stop("model$summary.random$area is NULL. Check your f(area, model='bym2', ...) term name.")
-      }
-      
-      area_eff <- as.data.frame(model$summary.random$area)
-      # area_eff$ID is the area index (1..N)
-      area_eff$area_id <- suppressWarnings(as.integer(as.character(area_eff$ID)))
-      if (anyNA(area_eff$area_id)) {
-        area_eff$area_id <- suppressWarnings(as.integer(gsub("[^0-9]", "", as.character(area_eff$ID))))
-      }
-      if (anyNA(area_eff$area_id)) stop("Could not parse area IDs from model$summary.random$area")
-      
-      # Create mapping area_id -> district_country.x using merged_data alignment logic:
-      # merged_data$area was match(district_country.x, shape2$district_country.x)
-      # So shape2 ordered by district_country.x should correspond to area_id.
-      shape2_map <- shape2_sf %>%
-        st_drop_geometry() %>%
-        select(all_of(district_key)) %>%
-        mutate(area_id = row_number())
-      
-      area_eff2 <- area_eff %>%
-        select(area_id, mean, `0.025quant`, `0.975quant`) %>%
-        rename(lower = `0.025quant`, upper = `0.975quant`) %>%
-        left_join(shape2_map, by = "area_id")
-      
-      map_df <- shape2_sf %>%
-        left_join(area_eff2, by = district_key)
-      
-      p_mean <- ggplot(map_df) +
-        geom_sf(aes(fill = mean), color = NA) +
-        scale_fill_gradient(low = "white", high = "navy", na.value = "grey90") +
-        labs(title = "Spatial effect (BYM2 area random effect, posterior mean)",
-             fill = "log-odds") +
-        theme_minimal()
-      
-      safe_ggsave("spatial_bym2_mean_thresholds.png",   p_mean, width = 9, height = 7)
-}
+    # Extract posterior spatial effects from the fitted BYM2 model.
+    area_eff <- as.data.frame(model$summary.random$area)
 
-p_spatial_mean <- plot_spatial_bym2_mean_only(
-  model = model,
-  shape2_sf = shape2_sf,
-  district_key = "district_country.x"
-)
+    # Convert INLA area IDs into the integer indices used by the shapefile.
+    area_eff$area_id <- as.integer(gsub("[^0-9]", "", as.character(area_eff$ID)))
 
-print(p_spatial_mean)
+    # Recreate the area-index-to-district mapping used by the model.
+    shape2_map <- shape2 %>%
+      st_drop_geometry() %>%
+      select(district_country.x) %>%
+      mutate(area_id = row_number())
+
+    # Join posterior means and credible intervals to district identifiers.
+    area_eff2 <- area_eff %>%
+      select(area_id, mean, `0.025quant`, `0.975quant`) %>%
+      rename(lower = `0.025quant`, upper = `0.975quant`) %>%
+      left_join(shape2_map, by = "area_id")
+
+    # Attach the spatial effects to the district geometries.
+    map_df <- shape2 %>%
+      left_join(area_eff2, by = "district_country.x")
+
+    # Plot and save posterior mean spatial effects by district.
+    p_spatial_mean <- ggplot(map_df) +
+      geom_sf(aes(fill = mean), color = NA) +
+      scale_fill_gradient(low = "white", high = "navy", na.value = "grey90") +
+      labs(
+        title = "Spatial effect (BYM2 area random effect, posterior mean)",
+        fill = "log-odds"
+      ) +
+      theme_minimal()
+
+    ggsave(
+      "spatial_bym2_mean_thresholds.png",
+      p_spatial_mean,
+      width = 9,
+      height = 7
+    )
+
+    print(p_spatial_mean)
 }
